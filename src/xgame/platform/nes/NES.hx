@@ -1,7 +1,11 @@
-package xgame.platform;
+package xgame.platform.nes;
 
-import xgame.processor.Processor6502;
+import haxe.ds.Vector;
+import xgame.platform.nes.Processor6502;
+import xgame.platform.nes.OpCode;
 
+
+typedef Memory = Vector<Int>;
 
 class NES
 {
@@ -19,44 +23,59 @@ class NES
     var of:Bool = false;        // overflow
     var nf:Bool = false;        // negative
     
-    var memory:Array<Int>;      // addressed memory
+    var cpuMemory:Memory;
+    var ppuMemory:Memory;
+    var objMemory:Memory;
     
-    var processor:Processor6502;
+    var cpu:Processor6502;
     
-    function new(processor:Processor6502)
+    var ntsc:Bool=true;
+    
+    var ppuSteps:Float=0;
+    var ppuStepSize:Float=3;
+    
+    function new(cpu:Processor6502)
     {
-        this.processor = processor;
-        memory = new Array();
+        this.cpu = cpu;
+        
+        cpuMemory = new Memory(0xFFFF+1);
+        ppuMemory = new Memory(0x0FFF+1);
+        objMemory = new Memory(0x00FF+1);
+        
         for (i in 0 ... 0xFFFF)
-            memory[i] = 0;
+            cpuMemory[i] = 0;
         
         for (i in 0 ... 0x07FF)
-            memory[i] = 0xFF;
+            cpuMemory[i] = 0xFF;
         
-        // load rom into memory
+        // load rom into cpuMemory
         for (i in 0x8000...0xBFFF)
         {
-            memory[i] = processor.getByte(i - 0x8000);
+            cpuMemory[i] = cpu.getByte(i - 0x8000);
         }
         for (i in 0xC000...0xFFFF)
         {
-            memory[i] = processor.getByte(i - 0xC000);
+            cpuMemory[i] = cpu.getByte(i - 0xC000);
         }
         
-        memory[0x2002] = 0x80;
+        cpuMemory[0x2002] = 0x80;
         
-        run();
+        if (!ntsc) ppuStepSize = 3.2;
+        
+        var start = Sys.time();
+        runCPU();
+        trace(Sys.time() - start);
     }
     
-    function run()
+    inline function runCPU()
     {
         var op:Command;
         var ad:Int, v:Int;
         
         do
         {
-            var byte = memory[pc];
-            op = processor.decodeByte(byte);
+            var byte = cpuMemory[pc];
+            op = cpu.decodeByte(byte);
             
             var value:Null<Int> = null;
             
@@ -65,40 +84,42 @@ class NES
             
             switch (op.code)
             {
-                case STA:                   // store accumulator
+                case OpCodes.STA:                   // store accumulator
                     ad = getAddress(op.mode);
-                    memory[ad] = accumulator;
-                case STX:                   // store x
+                    cpuMemory[ad] = accumulator;
+                case OpCodes.STX:                   // store x
                     ad = getAddress(op.mode);
-                    memory[ad] = x;
-                case STY:                   // store y
+                    cpuMemory[ad] = x;
+                case OpCodes.STY:                   // store y
                     ad = getAddress(op.mode);
-                    memory[ad] = y;
-                case SAX:                   // store acc & x
+                    cpuMemory[ad] = y;
+                case OpCodes.SAX:                   // store acc & x
                     ad = getAddress(op.mode);
-                    memory[ad] = x & accumulator;
-                case SEI, CLI:              // set/clear interrupt disable
-                    id = op.code == SEI;
-                case SED, CLD:              // set/clear decimal mode
-                    dm = op.code == SED;
-                case SEC, CLC:              // set/clear carry
-                    cf = op.code == SEC;
-                case CLV:                   // clear overflow
+                    cpuMemory[ad] = x & accumulator;
+                case OpCodes.SEI, OpCodes.CLI:      // set/clear interrupt disable
+                    id = op.code == OpCodes.SEI;
+                case OpCodes.SED, OpCodes.CLD:      // set/clear decimal mode
+                    dm = op.code == OpCodes.SED;
+                case OpCodes.SEC, OpCodes.CLC:      // set/clear carry
+                    cf = op.code == OpCodes.SEC;
+                case OpCodes.CLV:                   // clear overflow
                     of = false;
-                case BIT:                   // bit test
+                case OpCodes.BIT:                   // bit test
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     zf = accumulator & v == 0;
                     of = v & 0x40 != 0;
                     nf = v & 0x80 != 0;
-                case CMP, CPX, CPY:         // compare [x/y]
+                case OpCodes.CMP, 
+                     OpCodes.CPX, 
+                     OpCodes.CPY:                   // compare [x/y]
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     
                     var compare_to = switch (op.code)
                     {
-                        case CMP: accumulator;
-                        case CPX: x;
+                        case OpCodes.CMP: accumulator;
+                        case OpCodes.CPX: x;
                         default: y;
                     }
                     
@@ -109,42 +130,42 @@ class NES
                     cf = compare_to >= v;
                     zf = compare_to == v;
                     nf = tmp & 0x80 == 0x80;
-                case ADC:                   // add with carry
+                case OpCodes.ADC:                   // add with carry
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     value = adc(v);
-                case SBC:                   // subtract with carry
+                case OpCodes.SBC:                   // subtract with carry
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     value = sbc(v);
-                case JSR:                   // jump to subroutine
+                case OpCodes.JSR:                   // jump to subroutine
                     ad = getAddress(op.mode);
                     pushStack(pc - 1 >> 8);
                     pushStack(pc - 1 & 0xFF);
                     pc = ad;
-                case RTS:                   // return from subroutine
+                case OpCodes.RTS:                   // return from subroutine
                     pc = popStack() + (popStack() << 8) + 1;
-                case RTI:                   // return from interrupt
+                case OpCodes.RTI:                   // return from interrupt
                     setFlags(popStack());
                     pc = popStack() + (popStack() << 8) + 1;
-                case AND:                   // logical and
+                case OpCodes.AND:                   // logical and
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     accumulator &= v;
                     value = accumulator;
-                case ASL:                   // arithmetic shift left
+                case OpCodes.ASL:                   // arithmetic shift left
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     cf = v & 0x80 != 0;
                     value = (v << 1) & 0xFF;
                     storeValue(op.mode, ad, value);
-                case LSR:                   // logical shift right
+                case OpCodes.LSR:                   // logical shift right
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     cf = v & 1 != 0;
                     value = v >> 1;
                     storeValue(op.mode, ad, value);
-                case ROL:                   // rotate left
+                case OpCodes.ROL:                   // rotate left
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     var new_cf = v & 0x80 != 0;
@@ -152,7 +173,7 @@ class NES
                     value += cf ? 1 : 0;
                     cf = new_cf;
                     storeValue(op.mode, ad, value);
-                case ROR:                   // rotate right
+                case OpCodes.ROR:                   // rotate right
                     ad = getAddress(op.mode);
                     v = getValue(op.mode, ad);
                     var new_cf = v & 1 != 0;
@@ -160,23 +181,30 @@ class NES
                     value += cf ? 0x80 : 0;
                     cf = new_cf;
                     storeValue(op.mode, ad, value);
-                case BCC,BCS,BEQ,BMI,BNE,BPL,BVC,BVS:    // branch
+                case OpCodes.BCC,
+                     OpCodes.BCS,
+                     OpCodes.BEQ,
+                     OpCodes.BMI,
+                     OpCodes.BNE,
+                     OpCodes.BPL,
+                     OpCodes.BVC,
+                     OpCodes.BVS:                   // branch
                     var to_check = switch(op.code)
                     {
-                        case BCC, BCS:
+                        case OpCodes.BCC, OpCodes.BCS:
                             cf;
-                        case BEQ, BNE:
+                        case OpCodes.BEQ, OpCodes.BNE:
                             zf;
-                        case BMI, BPL:
+                        case OpCodes.BMI, OpCodes.BPL:
                             nf;
-                        case BVC, BVS:
+                        case OpCodes.BVC, OpCodes.BVS:
                             of;
                         default: false;
                     }
                     
                     var check_against = switch(op.code)
                     {
-                        case BCS, BEQ, BMI, BVS:
+                        case OpCodes.BCS, OpCodes.BEQ, OpCodes.BMI, OpCodes.BVS:
                             true;
                         default:
                             false;
@@ -186,30 +214,30 @@ class NES
                     {
                         pc = getAddress(op.mode);
                     }
-                case JMP:                   // jump
+                case OpCodes.JMP:                   // jump
                     ad = getAddress(op.mode);
                     pc = ad;
-                case JMA:                   // jump absolute
-                    ad = getAddress(Indirect);
+                case OpCodes.JMA:                   // jump absolute
+                    ad = getAddress(AddressingModes.Indirect);
                     pc = ad;
-                case LDA:                   // load accumulator
+                case OpCodes.LDA:                   // load accumulator
                     ad = getAddress(op.mode);
                     accumulator = getValue(op.mode, ad);
                     zf = accumulator == 0;
                     nf = accumulator & 0x80 == 0x80;
-                case LDX:                   // load x
+                case OpCodes.LDX:                   // load x
                     ad = getAddress(op.mode);
                     x = getValue(op.mode, ad);
                     zf = x == 0;
                     nf = x & 0x80 == 0x80;
-                case LDY:                   // load y
+                case OpCodes.LDY:                   // load y
                     ad = getAddress(op.mode);
                     y = getValue(op.mode, ad);
                     zf = y == 0;
                     nf = y & 0x80 == 0x80;
-                case PHA:                   // push accumulator
+                case OpCodes.PHA:                   // push accumulator
                     pushStack(accumulator);
-                case PHP:                   // push processor status
+                case OpCodes.PHP:                   // push cpu status
                     value = 0;
                     if (cf) value |= 1;
                     if (zf) value |= 1<<1;
@@ -220,58 +248,61 @@ class NES
                     if (of) value |= 1<<6;
                     if (nf) value |= 1<<7;
                     pushStack(value);
-                case PLP:                   // pull processor status
+                case OpCodes.PLP:                   // pull cpu status
                     value = popStack();
                     setFlags(value);
-                case PLA:                   // pull accumulator
+                case OpCodes.PLA:                   // pull accumulator
                     accumulator = value = popStack();
-                case INC:                   // increment memory
+                case OpCodes.INC:                   // increment cpuMemory
                     ad = getAddress(op.mode);
-                    memory[ad] = (memory[ad] + 1) & 0xFF;
-                case INX:                   // increment x
+                    cpuMemory[ad] = (cpuMemory[ad] + 1) & 0xFF;
+                case OpCodes.INX:                   // increment x
                     x += 1;
                     x &= 0xFF;
                     value = x;
-                case INY:                   // increment x
+                case OpCodes.INY:                   // increment x
                     y += 1;
                     y &= 0xFF;
                     value = y;
-                case DEC:                   // decrement memory
+                case OpCodes.DEC:                   // decrement cpuMemory
                     ad = getAddress(op.mode);
-                    memory[ad] = (memory[ad] - 1) & 0xFF;
-                case EOR:                   // exclusive or
+                    cpuMemory[ad] = (cpuMemory[ad] - 1) & 0xFF;
+                case OpCodes.EOR:                   // exclusive or
                     ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    value = getValue(op.mode, ad);
                     accumulator = value ^ accumulator;
                     value = accumulator;
-                case ORA:                   // logical or
+                case OpCodes.ORA:                   // logical or
                     ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
-                    accumulator |= value;
+                    value = getValue(op.mode, ad);
+                    accumulator = accumulator | value;
                     value = accumulator;
-                case DEX:                   // decrement x
+                case OpCodes.DEX:                   // decrement x
                     x = (x-1) & 0xFF;
                     value = x;
-                case DEY:                   // decrement y
+                case OpCodes.DEY:                   // decrement y
                     y = (y-1) & 0xFF;
                     value = y;
-                case TAX:                   // transfer accumulator to x
+                case OpCodes.TAX:                   // transfer accumulator to x
                     x = value = accumulator;
-                case TAY:                   // transfer accumulator to y
+                case OpCodes.TAY:                   // transfer accumulator to y
                     y = value = accumulator;
-                case TSX:                   // transfer stack pointer to x
+                case OpCodes.TSX:                   // transfer stack pointer to x
                     x = value = sp;
-                case TSY:                   // transfer stack pointer to y
+                case OpCodes.TSY:                   // transfer stack pointer to y
                     y = value = sp;
-                case TYA:                   // transfer y to accumulator
+                case OpCodes.TYA:                   // transfer y to accumulator
                     accumulator = value = y;
-                case TXS:                   // transfer x to stack pointer
+                case OpCodes.TXS:                   // transfer x to stack pointer
                     sp = value = x;
-                case TXA:                   // transfer x to accumulator
+                case OpCodes.TXA:                   // transfer x to accumulator
                     accumulator = value = x;
-                case NOP(i):                // no operation
-                    pc += i;
-                case BRK:
+                case OpCodes.NOP: {}                // no operation
+                case OpCodes.NOP1:                  // no operation +1
+                    pc += 1;
+                case OpCodes.NOP2:                  // no operation +2
+                    pc += 2;
+                case OpCodes.BRK:
                     trace("Break");
                     break;
                 default:
@@ -284,6 +315,8 @@ class NES
                 zf = value == 0;
                 nf = value & 0x80 == 0x80;
             }
+            
+            if (op != null) CommandPool.recycle(op);
         }
         while (op != null);
     }
@@ -293,18 +326,18 @@ class NES
         var address:Int=0;
         switch(mode)
         {
-            case Accumulator: {}
-            case ZeroPage, Immediate:
-                address = memory[pc++];
-            case ZeroPageX, ZeroPageY:
-                address = memory[pc++];
-                address += (mode==ZeroPageX) ? x : y;
+            case AddressingModes.Accumulator: {}
+            case AddressingModes.ZeroPage, AddressingModes.Immediate:
+                address = cpuMemory[pc++];
+            case AddressingModes.ZeroPageX, AddressingModes.ZeroPageY:
+                address = cpuMemory[pc++];
+                address += (mode==AddressingModes.ZeroPageX) ? x : y;
                 address &= 0xFF;
-            case Relative:
-                address = getSigned(memory[pc]);
+            case AddressingModes.Relative:
+                address = getSigned(cpuMemory[pc]);
                 address += ++pc;
-            case Indirect:
-                address = memory[pc] + (memory[pc+1] << 8);
+            case AddressingModes.Indirect:
+                address = cpuMemory[pc] + (cpuMemory[pc+1] << 8);
                 pc += 2;
                 
                 var next_addr = address + 1;
@@ -313,24 +346,26 @@ class NES
                     next_addr -= 0x0100;
                 }
                 
-                address = memory[address] + (memory[next_addr] << 8);
-            case IndirectX:
-                address = memory[pc++];
+                address = cpuMemory[address] + (cpuMemory[next_addr] << 8);
+            case AddressingModes.IndirectX:
+                address = cpuMemory[pc++];
                 address += x;
                 address &= 0xFF;
-                address = memory[address] + (memory[(address+1) & 0xFF] << 8);
-            case IndirectY:
-                address = memory[pc++];
-                address = memory[address] + (memory[(address+1) & 0xFF] << 8);
+                address = cpuMemory[address] + (cpuMemory[(address+1) & 0xFF] << 8);
+            case AddressingModes.IndirectY:
+                address = cpuMemory[pc++];
+                address = cpuMemory[address] + (cpuMemory[(address+1) & 0xFF] << 8);
                 address += y;
                 address &= 0xFFFF;
-            case Absolute, AbsoluteX, AbsoluteY:
-                address = memory[pc] + (memory[pc+1] << 8);
+            case AddressingModes.Absolute, 
+                 AddressingModes.AbsoluteX, 
+                 AddressingModes.AbsoluteY:
+                address = cpuMemory[pc] + (cpuMemory[pc+1] << 8);
                 pc += 2;
                 
-                if (mode==AbsoluteX)
+                if (mode==AddressingModes.AbsoluteX)
                     address += x;
-                else if (mode==AbsoluteY)
+                else if (mode==AddressingModes.AbsoluteY)
                     address += y;
                 
                 address &= 0xFFFF;
@@ -350,9 +385,9 @@ class NES
     {
         switch(mode)
         {
-            case Immediate: return address & 0xFF;
-            case Accumulator: return accumulator;
-            default: return memory[address];
+            case AddressingModes.Immediate: return address & 0xFF;
+            case AddressingModes.Accumulator: return accumulator;
+            default: return cpuMemory[address];
         }
     }
     
@@ -392,13 +427,13 @@ class NES
     
     inline function pushStack(value:Int)
     {
-        memory[0x100 + sp] = value;
+        storeMem(0x100+sp, value);
         sp--;
     }
     
     inline function popStack():Int
     {
-        return memory[0x100 + sp++];
+        return cpuMemory[0x100 + sp++];
     }
     
     inline function setFlags(value:Int)
@@ -414,14 +449,30 @@ class NES
     
     inline function storeValue(mode:AddressingMode, ad:Int, value:Int)
     {
-        if (mode == Accumulator)
+        if (mode == AddressingModes.Accumulator)
         {
             accumulator = value;
         }
         else
         {
-            memory[ad] = value;
+            storeMem(ad, value);
         }
+    }
+    
+    inline function storeMem(ad:Int, value:Int)
+    {
+        cpuMemory[ad] = value;
+        runPPU();
+    }
+    
+    inline function runPPU()
+    {
+        // figure out how many times to run
+        ppuSteps += ppuStepSize;
+        var steps = Std.int(ppuSteps);
+        ppuSteps -= steps;
+        
+        
     }
     
     static function main()

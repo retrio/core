@@ -16,6 +16,6 @@ with open("6502table.html") as input_file:
         md = tds[2].text.strip()
         if op:
             md = ''.join(alpha.findall(md))
-            print "case " + hx + ": code=" + op + ";",
-            if (md and md != "Absolute"): print "mode=" + md + ";",
-            print
+            print "case " + hx + ": { code=OpCalls." + op + ";",
+            if (md and md != "Absolute"): print "mode=AddressingModes." + md + ";",
+            print "}"
