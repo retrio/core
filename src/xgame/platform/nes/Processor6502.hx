@@ -6,40 +6,6 @@ import xgame.platform.nes.OpCode;
 import haxe.ds.Vector;
 
 
-class CommandPool
-{
-    static inline var maxPoolSize=1024;
-    static var pool:Vector<Command>;
-    static var lastPoolLoc = -1;
-    
-    public static inline function get(code:OpCode, mode:AddressingMode):Command
-    {
-        if (pool == null)
-        {
-            pool = new Vector(maxPoolSize);
-        }
-        
-        if (lastPoolLoc > -1)
-        {
-            var thisCode = pool[lastPoolLoc];
-            thisCode.code = code;
-            thisCode.mode = mode;
-            return thisCode;
-        }
-        else
-        {
-            return {code:code, mode:mode};
-        }
-    }
-    
-    public static inline function recycle(cmd:Command)
-    {
-        if (lastPoolLoc < maxPoolSize-1) pool[++lastPoolLoc] = cmd;
-        else return;
-    }
-}
-
-
 class Processor6502
 {
     var data:Bytes;
@@ -71,7 +37,7 @@ class Processor6502
         return decodeByte(getByte(address));
     }
     
-    public inline function decodeByte(byte:Int):Command
+    public static inline function decodeByte(byte:Int):Command
     {
         var code:OpCode;
         var mode:AddressingMode = AddressingModes.Absolute;
@@ -235,8 +201,6 @@ class Processor6502
             default: code=OpCodes.NOP;
         }
         
-        var cmd:Command = CommandPool.get(code, mode);
-        
-        return cmd;
+        return Commands.newCmd(code, mode);
     }
 }

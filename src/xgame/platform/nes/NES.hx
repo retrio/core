@@ -3,6 +3,7 @@ package xgame.platform.nes;
 import haxe.ds.Vector;
 import xgame.platform.nes.Processor6502;
 import xgame.platform.nes.OpCode;
+import xgame.platform.nes.PPU;
 
 
 typedef Memory = Vector<Int>;
@@ -28,6 +29,7 @@ class NES
     var objMemory:Memory;
     
     var cpu:Processor6502;
+    var ppu:PPU;
     
     var ntsc:Bool=true;
     
@@ -38,9 +40,9 @@ class NES
     {
         this.cpu = cpu;
         
-        cpuMemory = new Memory(0xFFFF+1);
-        ppuMemory = new Memory(0x0FFF+1);
-        objMemory = new Memory(0x00FF+1);
+        cpuMemory = new Memory(0x10000);
+        ppuMemory = new Memory(0x01000);
+        objMemory = new Memory(0x00100);
         
         for (i in 0 ... 0xFFFF)
             cpuMemory[i] = 0;
@@ -48,11 +50,12 @@ class NES
         for (i in 0 ... 0x07FF)
             cpuMemory[i] = 0xFF;
         
-        // load rom into cpuMemory
+        // load first program bank
         for (i in 0x8000...0xBFFF)
         {
             cpuMemory[i] = cpu.getByte(i - 0x8000);
         }
+        // load second program bank
         for (i in 0xC000...0xFFFF)
         {
             cpuMemory[i] = cpu.getByte(i - 0xC000);
@@ -71,52 +74,61 @@ class NES
     {
         var op:Command;
         var ad:Int, v:Int;
+        var code:OpCode;
+        var mode:AddressingMode;
         
         do
         {
             var byte = cpuMemory[pc];
-            op = cpu.decodeByte(byte);
+            op = Processor6502.decodeByte(byte);
+            code = Commands.getCode(op);
             
             var value:Null<Int> = null;
             
-            trace(pc+" "+Std.string(op.code)+" "+byte);
+            trace(pc+" "+Std.string(code)+" "+byte);
             pc++;
             
-            switch (op.code)
+            switch (code)
             {
                 case OpCodes.STA:                   // store accumulator
-                    ad = getAddress(op.mode);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
                     cpuMemory[ad] = accumulator;
                 case OpCodes.STX:                   // store x
-                    ad = getAddress(op.mode);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
                     cpuMemory[ad] = x;
                 case OpCodes.STY:                   // store y
-                    ad = getAddress(op.mode);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
                     cpuMemory[ad] = y;
                 case OpCodes.SAX:                   // store acc & x
-                    ad = getAddress(op.mode);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
                     cpuMemory[ad] = x & accumulator;
                 case OpCodes.SEI, OpCodes.CLI:      // set/clear interrupt disable
-                    id = op.code == OpCodes.SEI;
+                    id = code == OpCodes.SEI;
                 case OpCodes.SED, OpCodes.CLD:      // set/clear decimal mode
-                    dm = op.code == OpCodes.SED;
+                    dm = code == OpCodes.SED;
                 case OpCodes.SEC, OpCodes.CLC:      // set/clear carry
-                    cf = op.code == OpCodes.SEC;
+                    cf = code == OpCodes.SEC;
                 case OpCodes.CLV:                   // clear overflow
                     of = false;
                 case OpCodes.BIT:                   // bit test
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     zf = accumulator & v == 0;
                     of = v & 0x40 != 0;
                     nf = v & 0x80 != 0;
                 case OpCodes.CMP, 
                      OpCodes.CPX, 
                      OpCodes.CPY:                   // compare [x/y]
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     
-                    var compare_to = switch (op.code)
+                    var compare_to = switch (code)
                     {
                         case OpCodes.CMP: accumulator;
                         case OpCodes.CPX: x;
@@ -131,15 +143,18 @@ class NES
                     zf = compare_to == v;
                     nf = tmp & 0x80 == 0x80;
                 case OpCodes.ADC:                   // add with carry
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     value = adc(v);
                 case OpCodes.SBC:                   // subtract with carry
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     value = sbc(v);
                 case OpCodes.JSR:                   // jump to subroutine
-                    ad = getAddress(op.mode);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
                     pushStack(pc - 1 >> 8);
                     pushStack(pc - 1 & 0xFF);
                     pc = ad;
@@ -149,38 +164,43 @@ class NES
                     setFlags(popStack());
                     pc = popStack() + (popStack() << 8) + 1;
                 case OpCodes.AND:                   // logical and
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     accumulator &= v;
                     value = accumulator;
                 case OpCodes.ASL:                   // arithmetic shift left
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     cf = v & 0x80 != 0;
                     value = (v << 1) & 0xFF;
-                    storeValue(op.mode, ad, value);
+                    storeValue(mode, ad, value);
                 case OpCodes.LSR:                   // logical shift right
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     cf = v & 1 != 0;
                     value = v >> 1;
-                    storeValue(op.mode, ad, value);
+                    storeValue(mode, ad, value);
                 case OpCodes.ROL:                   // rotate left
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     var new_cf = v & 0x80 != 0;
                     value = (v << 1) & 0xFF;
                     value += cf ? 1 : 0;
                     cf = new_cf;
-                    storeValue(op.mode, ad, value);
+                    storeValue(mode, ad, value);
                 case OpCodes.ROR:                   // rotate right
-                    ad = getAddress(op.mode);
-                    v = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
                     var new_cf = v & 1 != 0;
                     value = (v >> 1) & 0xFF;
                     value += cf ? 0x80 : 0;
                     cf = new_cf;
-                    storeValue(op.mode, ad, value);
+                    storeValue(mode, ad, value);
                 case OpCodes.BCC,
                      OpCodes.BCS,
                      OpCodes.BEQ,
@@ -189,7 +209,7 @@ class NES
                      OpCodes.BPL,
                      OpCodes.BVC,
                      OpCodes.BVS:                   // branch
-                    var to_check = switch(op.code)
+                    var to_check = switch(code)
                     {
                         case OpCodes.BCC, OpCodes.BCS:
                             cf;
@@ -202,7 +222,7 @@ class NES
                         default: false;
                     }
                     
-                    var check_against = switch(op.code)
+                    var check_against = switch(code)
                     {
                         case OpCodes.BCS, OpCodes.BEQ, OpCodes.BMI, OpCodes.BVS:
                             true;
@@ -212,27 +232,32 @@ class NES
                     
                     if (to_check == check_against)
                     {
-                        pc = getAddress(op.mode);
+                        mode = Commands.getMode(op);
+                        pc = getAddress(mode);
                     }
                 case OpCodes.JMP:                   // jump
-                    ad = getAddress(op.mode);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
                     pc = ad;
                 case OpCodes.JMA:                   // jump absolute
                     ad = getAddress(AddressingModes.Indirect);
                     pc = ad;
                 case OpCodes.LDA:                   // load accumulator
-                    ad = getAddress(op.mode);
-                    accumulator = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    accumulator = getValue(mode, ad);
                     zf = accumulator == 0;
                     nf = accumulator & 0x80 == 0x80;
                 case OpCodes.LDX:                   // load x
-                    ad = getAddress(op.mode);
-                    x = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    x = getValue(mode, ad);
                     zf = x == 0;
                     nf = x & 0x80 == 0x80;
                 case OpCodes.LDY:                   // load y
-                    ad = getAddress(op.mode);
-                    y = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    y = getValue(mode, ad);
                     zf = y == 0;
                     nf = y & 0x80 == 0x80;
                 case OpCodes.PHA:                   // push accumulator
@@ -254,7 +279,8 @@ class NES
                 case OpCodes.PLA:                   // pull accumulator
                     accumulator = value = popStack();
                 case OpCodes.INC:                   // increment cpuMemory
-                    ad = getAddress(op.mode);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
                     cpuMemory[ad] = (cpuMemory[ad] + 1) & 0xFF;
                 case OpCodes.INX:                   // increment x
                     x += 1;
@@ -265,16 +291,19 @@ class NES
                     y &= 0xFF;
                     value = y;
                 case OpCodes.DEC:                   // decrement cpuMemory
-                    ad = getAddress(op.mode);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
                     cpuMemory[ad] = (cpuMemory[ad] - 1) & 0xFF;
                 case OpCodes.EOR:                   // exclusive or
-                    ad = getAddress(op.mode);
-                    value = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    value = getValue(mode, ad);
                     accumulator = value ^ accumulator;
                     value = accumulator;
                 case OpCodes.ORA:                   // logical or
-                    ad = getAddress(op.mode);
-                    value = getValue(op.mode, ad);
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    value = getValue(mode, ad);
                     accumulator = accumulator | value;
                     value = accumulator;
                 case OpCodes.DEX:                   // decrement x
@@ -306,7 +335,7 @@ class NES
                     trace("Break");
                     break;
                 default:
-                    trace("Instruction " + op.code + " not yet implemented");
+                    trace("Instruction " + code + " not yet implemented");
                     break;
             }
             
@@ -315,8 +344,6 @@ class NES
                 zf = value == 0;
                 nf = value & 0x80 == 0x80;
             }
-            
-            if (op != null) CommandPool.recycle(op);
         }
         while (op != null);
     }
