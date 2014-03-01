@@ -1,4 +1,8 @@
 nestest:
-	haxe -main xgame.platform.nes.NES -neko nes.n -cp src
+	haxe -main xgame.platform.nes.NES -neko nes.n -cp src -lib openfl -lib openfl-native --macro "allowPackage('flash')"
 	nekotools boot nes.n
-	./nes nestest.nes
+	for i in assets/roms/*.nes; \
+	do \
+		echo "$$i"; \
+		./nes "$$i"; \
+	done
