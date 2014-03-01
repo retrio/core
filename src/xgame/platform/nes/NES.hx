@@ -64,13 +64,11 @@ class NES
         cpuMemory[0x2002] = 0x80;
         
         if (!ntsc) ppuStepSize = 3.2;
-        
-        var start = Sys.time();
-        runCPU();
-        trace(Std.int(cpuTicks / (Sys.time() - start) / 1000000 * 1000)/1000 + "MHz");
     }
     
-    inline function runCPU()
+    var ticks:Int=0;
+    
+    inline function run()
     {
         var op:Command;
         var ad:Int, v:Int;
@@ -87,7 +85,8 @@ class NES
             
             //trace(pc+" "+Std.string(code)+" "+byte);
             pc++;
-            cpuTicks += Commands.getTicks(op);
+            
+            ticks = Commands.getTicks(op);
             
             switch (code)
             {
@@ -233,6 +232,7 @@ class NES
                     
                     if (to_check == check_against)
                     {
+                        ticks += 1;
                         mode = Commands.getMode(op);
                         pc = getAddress(mode);
                     }
@@ -341,6 +341,8 @@ class NES
                 zf = value == 0;
                 nf = value & 0x80 == 0x80;
             }
+            
+            cpuTicks += ticks;
         }
         while (op != null);
     }
@@ -360,6 +362,8 @@ class NES
             case AddressingModes.Relative:
                 address = getSigned(cpuMemory[pc]);
                 address += ++pc;
+                // new page
+                if (address>>8 != pc>>8) ticks += 1;
             case AddressingModes.Indirect:
                 address = cpuMemory[pc] + (cpuMemory[pc+1] << 8);
                 pc += 2;
@@ -379,6 +383,10 @@ class NES
             case AddressingModes.IndirectY:
                 address = cpuMemory[pc++];
                 address = cpuMemory[address] + (cpuMemory[(address+1) & 0xFF] << 8);
+                
+                // new page
+                if (ticks == 5 && address>>8 != (address+y)>>8) ticks += 1;
+                
                 address += y;
                 address &= 0xFFFF;
             case AddressingModes.Absolute, 
@@ -388,9 +396,19 @@ class NES
                 pc += 2;
                 
                 if (mode==AddressingModes.AbsoluteX)
+                {
+                    // new page
+                    if (ticks==4 && (address>>8 != (address+x)>>8)) ticks += 1;
+                    
                     address += x;
+                }
                 else if (mode==AddressingModes.AbsoluteY)
+                {
+                    // new page
+                    if (ticks==4 && (address>>8 != (address+y)>>8)) ticks += 1;
+                    
                     address += y;
+                }
                 
                 address &= 0xFFFF;
         }
@@ -498,9 +516,14 @@ class NES
         var args = Sys.args();
         var fileName = args[0];
         
+        trace(fileName);
+        
         var p = new Processor6502(sys.io.File.getBytes(fileName), 0x10);
         var vm = new NES(p);
         
-        trace('done');
+        var start = Sys.time();
+        vm.run();
+        trace(vm.cpuTicks + " ticks");
+        trace(Std.int(vm.cpuTicks / (Sys.time() - start) / 1000)/1000 + "MHz");
     }
 }
