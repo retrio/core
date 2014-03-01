@@ -30,7 +30,7 @@ with open("6502table.html") as input_file:
         hx = hex(k)[2:].upper()
         if (len(hx) < 2): hx = "0" + hx
         hx = "0x" + hx
-        print "case " + hx + ": { code=OpCalls." + op + ";",
-        if (md and md != "Absolute"): print "mode=AddressingModes." + md + ";",
+        print "case " + hx + ": { code=OpCodes." + op + ";",
+        if (md and not md in ("Implied", "Absolute")): print "mode=AddressingModes." + md + ";",
         if (ticks != 2): print "ticks=%s;" % ticks,
         print "}"

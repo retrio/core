@@ -33,7 +33,7 @@ class NES
     
     var ntsc:Bool=true;
     
-    var ppuSteps:Float=0;
+    var cpuTicks:Int=0;
     var ppuStepSize:Float=3;
     
     function new(cpu:Processor6502)
@@ -67,7 +67,7 @@ class NES
         
         var start = Sys.time();
         runCPU();
-        trace(Sys.time() - start);
+        trace(Std.int(cpuTicks / (Sys.time() - start) / 1000000 * 1000)/1000 + "MHz");
     }
     
     inline function runCPU()
@@ -85,8 +85,9 @@ class NES
             
             var value:Null<Int> = null;
             
-            trace(pc+" "+Std.string(code)+" "+byte);
+            //trace(pc+" "+Std.string(code)+" "+byte);
             pc++;
+            cpuTicks += Commands.getTicks(op);
             
             switch (code)
             {
@@ -327,10 +328,6 @@ class NES
                 case OpCodes.TXA:                   // transfer x to accumulator
                     accumulator = value = x;
                 case OpCodes.NOP: {}                // no operation
-                case OpCodes.NOP1:                  // no operation +1
-                    pc += 1;
-                case OpCodes.NOP2:                  // no operation +2
-                    pc += 2;
                 case OpCodes.BRK:
                     trace("Break");
                     break;
@@ -494,12 +491,6 @@ class NES
     
     inline function runPPU()
     {
-        // figure out how many times to run
-        ppuSteps += ppuStepSize;
-        var steps = Std.int(ppuSteps);
-        ppuSteps -= steps;
-        
-        
     }
     
     static function main()
