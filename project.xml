@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+    <meta title="xgame" package="com.monsterface.xgame" version="1.0.0" company="MonsterFace Games"/>
+    <app main="Main" path="bin" file="xgame"/>
+    
+    <window fps="60" background="0x000000"/>
+    <window width="256" height="240"/>
+    <window width="0" height="0" if="mobile"/>
+    <window orientation="landscape" vsync="true"/>
+    <window resizable="false"/>
+    
+    <source path="src"/>
+    
+    <haxelib name="openfl"/>
+    <haxelib name="openfl-native" if="native"/>
+    
+    <assets path="assets" rename="assets" exclude="openfl.svg"/>
+    <icon path="assets/openfl.svg"/>
+</project>

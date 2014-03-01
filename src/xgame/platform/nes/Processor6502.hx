@@ -1,17 +1,17 @@
 package xgame.platform.nes;
 
-import haxe.io.Bytes;
 import haxe.io.Input;
-import xgame.platform.nes.OpCode;
 import haxe.ds.Vector;
+import flash.utils.ByteArray;
+import xgame.platform.nes.OpCode;
 
 
 class Processor6502
 {
-    var data:Bytes;
+    var data:ByteArray;
     var offset:Int;
     
-    public function new(file:Bytes, offset:Int)
+    public function new(file:ByteArray, offset:Int)
     {
         this.data = file;
         this.offset = offset;

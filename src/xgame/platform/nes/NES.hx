@@ -1,6 +1,7 @@
 package xgame.platform.nes;
 
 import haxe.ds.Vector;
+import flash.display.BitmapData;
 import xgame.platform.nes.Processor6502;
 import xgame.platform.nes.OpCode;
 import xgame.platform.nes.PPU;
@@ -10,6 +11,12 @@ typedef Memory = Vector<Int>;
 
 class NES
 {
+    public static inline var RESOLUTION_X=256;
+    public static inline var RESOLUTION_Y=240;
+    
+    public var cpuTicks:Int=0;
+    public var screen:BitmapData;
+    
     var pc:Int = 0x8000;        // program counter
     var sp:Int = 0xFD;          // stack pointer
     var accumulator:Int = 0;    // accumulator
@@ -33,16 +40,15 @@ class NES
     
     var ntsc:Bool=true;
     
-    var cpuTicks:Int=0;
     var ppuStepSize:Float=3;
     
-    function new(cpu:Processor6502)
+    public function new(cpu:Processor6502)
     {
         this.cpu = cpu;
         
-        cpuMemory = new Memory(0x10000);
-        ppuMemory = new Memory(0x01000);
-        objMemory = new Memory(0x00100);
+        cpuMemory = new Vector(0x10000);
+        ppuMemory = new Vector(0x01000);
+        objMemory = new Vector(0x00100);
         
         for (i in 0 ... 0xFFFF)
             cpuMemory[i] = 0;
@@ -64,11 +70,13 @@ class NES
         cpuMemory[0x2002] = 0x80;
         
         if (!ntsc) ppuStepSize = 3.2;
+        
+        screen = new BitmapData(RESOLUTION_X, RESOLUTION_Y);
     }
     
     var ticks:Int=0;
     
-    inline function run()
+    public inline function run()
     {
         var op:Command;
         var ad:Int, v:Int;
@@ -344,7 +352,7 @@ class NES
             
             cpuTicks += ticks;
         }
-        while (op != null);
+        while (op != -1);
     }
     
     inline function getAddress(mode:AddressingMode)
@@ -504,13 +512,14 @@ class NES
     inline function storeMem(ad:Int, value:Int)
     {
         cpuMemory[ad] = value;
-        runPPU();
+        if (ad >= 0x2000 && ad <= 0x2007) runPPU();
     }
     
     inline function runPPU()
     {
     }
-    
+
+#if !flash
     static function main()
     {
         var args = Sys.args();
@@ -518,7 +527,7 @@ class NES
         
         trace(fileName);
         
-        var p = new Processor6502(sys.io.File.getBytes(fileName), 0x10);
+        var p = new Processor6502(openfl.Assets.getBytes(fileName), 0x10);
         var vm = new NES(p);
         
         var start = Sys.time();
@@ -526,4 +535,5 @@ class NES
         trace(vm.cpuTicks + " ticks");
         trace(Std.int(vm.cpuTicks / (Sys.time() - start) / 1000)/1000 + "MHz");
     }
+#end
 }
