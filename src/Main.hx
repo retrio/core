@@ -14,15 +14,14 @@ class Main extends Sprite {
         trace(fileName);
         
         var file = openfl.Assets.getBytes(fileName);
-        var p = new CPU(file, 0x10);
-        var vm = new NES(p);
+        var vm = new NES(file);
         
         var bmp = new Bitmap(vm.screen);
         addChild(bmp);
         
         var start = Date.now().getTime();
         vm.run();
-        trace(vm.cpuTicks + " ticks");
-        trace(Std.int(vm.cpuTicks / (Date.now().getTime() - start) / 1000)/1000 + "MHz");
+        trace(vm.cpu.ticks + " ticks");
+        trace(Std.int(vm.cpu.ticks / (Date.now().getTime() - start) / 1000)/1000 + "MHz");
     }
 }

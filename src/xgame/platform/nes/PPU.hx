@@ -14,6 +14,8 @@ class PPU
     public var spriteRam:Vector<Int>;
     public var statusReg:Int=0;
     
+    var nes:NES;
+    
     var tiles:Vector<Vector<BitmapData>>;
     
     var ppuAddrWrites:Int=0;
@@ -40,21 +42,20 @@ class PPU
     var scrollX:Int=0;
     var scrollY:Int=0;
     
-    var palette:Vector<Vector<Int>>;
+    var palette:Vector<Int>;
     
-    public function new()
+    public function new(nes:NES)
     {
         screen = new BitmapData(RESOLUTION_X, RESOLUTION_Y);
         memory = new Vector(0x4000);
         spriteRam = new Vector(0x100);
         
-        palette = new Vector(defaultPalette.length);
+        palette = new Vector(defaultPalette.length*3);
         for (n in 0 ... defaultPalette.length)
         {
-            palette[n] = new Vector(3);
             for (m in 0 ... 3)
             {
-                palette[n][m] = defaultPalette[n][m];
+                palette[n*3 + m] = defaultPalette[n][m];
             }
         }
     }
@@ -155,6 +156,12 @@ class PPU
             }
             case 0x4016:
             {
+                // DMA (direct memory access, write CPU memory to sprite RAM)
+                var a = 0x100 * (value&0xFF);
+                for (b in 0 ... 0x100)
+                {
+                    spriteRam[b] = nes.cpu.read(a++);
+                }
             }
         }
     }
