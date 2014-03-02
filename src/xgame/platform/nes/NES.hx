@@ -97,10 +97,6 @@ class NES
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     cpuWrite(ad, y);
-                case OpCodes.SAX:                   // store acc & x
-                    mode = Commands.getMode(op);
-                    ad = getAddress(mode);
-                    cpuWrite(ad, x & accumulator);
                 case OpCodes.SEI, OpCodes.CLI:      // set/clear interrupt disable
                     id = code == OpCodes.SEI;
                 case OpCodes.SED, OpCodes.CLD:      // set/clear decimal mode
@@ -323,17 +319,85 @@ class NES
                 case OpCodes.TXA:                   // transfer x to accumulator
                     accumulator = value = x;
                 case OpCodes.NOP: {}                // no operation
-                case OpCodes.IGN1: {
+                case OpCodes.IGN1:
                     pc += 1;
-                }
-                case OpCodes.IGN2: {
+                case OpCodes.IGN2:
                     pc += 2;
-                }
+                case OpCodes.LAX:                   // LDX + TXA
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    x = getValue(mode, ad);
+                    accumulator = value = x;
+                case OpCodes.SAX:                   // store (x & accumulator)
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    cpuWrite(ad, x & accumulator);
+                case OpCodes.RLA:
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
+                    value = (v << 1) & 0xFF;
+                    value += cf ? 1 : 0;
+                    
+                    cpuWrite(ad, value);
+                    cf = v & 0x80 != 0;
+                    
+                    accumulator &= value;
+                    value = accumulator;
+                case OpCodes.RRA:
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
+                    value = (v >> 1) & 0xFF;
+                    value += cf ? 0x80 : 0;
+                    
+                    cpuWrite(ad, value);
+                    cf = v & 1 != 0;
+                    
+                    value = accumulator = adc(value);
+                case OpCodes.SLO:
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
+                    cf = v & 0x80 != 0;
+                    v = (v << 1) & 0xFF;
+                    cpuWrite(ad, v);
+                    accumulator |= v;
+                    value = accumulator;
+                case OpCodes.SRE:
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
+                    cf = v & 1 != 0;
+                    value = v >> 1;
+                    cpuWrite(ad, v);
+                    accumulator = value ^ accumulator;
+                    value = accumulator;
+                case OpCodes.DCP:
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
+                    v &= 0xFF;
+                    cpuWrite(ad, v);
+                    
+                    var tmp = accumulator - v;
+                    if (tmp < 0) tmp += 0xFF + 1;
+                    
+                    cf = accumulator >= v;
+                    zf = accumulator == v;
+                    nf = tmp & 0x80 == 0x80;
+                case OpCodes.ISC:
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
+                    v = (v+1) & 0xFF;
+                    cpuWrite(ad, v);
+                    value = sbc(v);
                 case OpCodes.BRK:
                     trace("Break");
                     break;
                 default:
-                    trace("Instruction " + code + " not yet implemented");
+                    trace("Instruction $" + StringTools.hex(byte,2) + ") not yet implemented");
                     break;
             }
             
