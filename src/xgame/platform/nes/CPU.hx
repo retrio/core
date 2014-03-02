@@ -1,35 +1,68 @@
 package xgame.platform.nes;
 
+import haxe.io.Bytes;
 import haxe.io.Input;
 import haxe.ds.Vector;
 import flash.utils.ByteArray;
 import xgame.platform.nes.OpCode;
 
 
-class Processor6502
+class CPU
 {
-    var data:ByteArray;
+    public var memory:Vector<Int>;
+    
+    var data:Vector<Int>;
     var offset:Int;
     
     public function new(file:ByteArray, offset:Int)
     {
-        this.data = file;
+        data = new Vector(file.length);
+        var pos = 0;
+        while (file.bytesAvailable > 0)
+        {
+            data[pos++] = file.readUnsignedByte();
+        }
         this.offset = offset;
         
         parseHeader();
+        
+        memory = new Vector(0x10000);
+        
+        for (i in 0 ... 0xFFFF)
+        {
+            memory[i] = 0;
+        }
+        
+        for (i in 0 ... 0x07FF)
+        {
+            memory[i] = 0xFF;
+        }
+        
+        // load first program bank
+        for (i in 0x8000...0xBFFF)
+        {
+            memory[i] = getByte(i - 0x8000);
+        }
+        // load second program bank
+        for (i in 0xC000...0xFFFF)
+        {
+            memory[i] = getByte(i - 0xC000);
+        }
+        
+        memory[0x2002] = 0x80;
     }
     
     function parseHeader()
     {
-        var f6 = data.get(6);
-        var f7 = data.get(7);
+        var f6 = data[6];
+        var f7 = data[7];
         
         var mapper = (f6 & 0xF0 >> 4) + f7 & 0xF0;
     }
     
     public inline function getByte(address:Int):Int
     {
-        return data.get(address + offset);
+        return data[address + offset];
     }
     
     public inline function getOP(address:Int):Command

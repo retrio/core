@@ -1,21 +1,22 @@
 package xgame.platform.nes;
 
 import haxe.ds.Vector;
+import flash.Memory;
+import flash.utils.ByteArray;
 import flash.display.BitmapData;
-import xgame.platform.nes.Processor6502;
+import xgame.platform.nes.CPU;
 import xgame.platform.nes.OpCode;
 import xgame.platform.nes.PPU;
 
 
-typedef Memory = Vector<Int>;
-
 class NES
 {
-    public static inline var RESOLUTION_X=256;
-    public static inline var RESOLUTION_Y=240;
-    
     public var cpuTicks:Int=0;
-    public var screen:BitmapData;
+    public var screen(get, never):BitmapData;
+    function get_screen()
+    {
+        return ppu.screen;
+    }
     
     var pc:Int = 0x8000;        // program counter
     var sp:Int = 0xFD;          // stack pointer
@@ -31,47 +32,27 @@ class NES
     var of:Bool = false;        // overflow
     var nf:Bool = false;        // negative
     
-    var cpuMemory:Memory;
-    var ppuMemory:Memory;
-    var objMemory:Memory;
+    var cpuMemory:Vector<Int>;
+    var ppuMemory:Vector<Int>;
     
-    var cpu:Processor6502;
+    var cpu:CPU;
     var ppu:PPU;
     
     var ntsc:Bool=true;
     
+    var ppuTicks:Float=0;
     var ppuStepSize:Float=3;
+    var scanline:Int=0;
     
-    public function new(cpu:Processor6502)
+    public function new(cpu:CPU)
     {
         this.cpu = cpu;
+        this.ppu = new PPU();
         
-        cpuMemory = new Vector(0x10000);
-        ppuMemory = new Vector(0x01000);
-        objMemory = new Vector(0x00100);
-        
-        for (i in 0 ... 0xFFFF)
-            cpuMemory[i] = 0;
-        
-        for (i in 0 ... 0x07FF)
-            cpuMemory[i] = 0xFF;
-        
-        // load first program bank
-        for (i in 0x8000...0xBFFF)
-        {
-            cpuMemory[i] = cpu.getByte(i - 0x8000);
-        }
-        // load second program bank
-        for (i in 0xC000...0xFFFF)
-        {
-            cpuMemory[i] = cpu.getByte(i - 0xC000);
-        }
-        
-        cpuMemory[0x2002] = 0x80;
+        cpuMemory = cpu.memory;
+        ppuMemory = ppu.memory;
         
         if (!ntsc) ppuStepSize = 3.2;
-        
-        screen = new BitmapData(RESOLUTION_X, RESOLUTION_Y);
     }
     
     var ticks:Int=0;
@@ -85,13 +66,17 @@ class NES
         
         do
         {
-            var byte = cpuMemory[pc];
-            op = Processor6502.decodeByte(byte);
+            var byte = cpuRead(pc);
+            op = CPU.decodeByte(byte);
             code = Commands.getCode(op);
             
             var value:Null<Int> = null;
             
-            //trace(pc+" "+Std.string(code)+" "+byte);
+            mode = Commands.getMode(op);
+            trace(StringTools.hex(pc, 4)+" "+
+                OpCodes.opCodeNames[code]+" "+
+                AddressingModes.addressingModeNames[mode]+" "+
+                StringTools.hex(byte,2));
             pc++;
             
             ticks = Commands.getTicks(op);
@@ -101,19 +86,19 @@ class NES
                 case OpCodes.STA:                   // store accumulator
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    cpuMemory[ad] = accumulator;
+                    cpuWrite(ad, accumulator);
                 case OpCodes.STX:                   // store x
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    cpuMemory[ad] = x;
+                    cpuWrite(ad, x);
                 case OpCodes.STY:                   // store y
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    cpuMemory[ad] = y;
+                    cpuWrite(ad, y);
                 case OpCodes.SAX:                   // store acc & x
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    cpuMemory[ad] = x & accumulator;
+                    cpuWrite(ad, x & accumulator);
                 case OpCodes.SEI, OpCodes.CLI:      // set/clear interrupt disable
                     id = code == OpCodes.SEI;
                 case OpCodes.SED, OpCodes.CLD:      // set/clear decimal mode
@@ -290,7 +275,7 @@ class NES
                 case OpCodes.INC:                   // increment cpuMemory
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    cpuMemory[ad] = (cpuMemory[ad] + 1) & 0xFF;
+                    cpuWrite(ad, (cpuRead(ad) + 1) & 0xFF);
                 case OpCodes.INX:                   // increment x
                     x += 1;
                     x &= 0xFF;
@@ -302,7 +287,7 @@ class NES
                 case OpCodes.DEC:                   // decrement cpuMemory
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    cpuMemory[ad] = (cpuMemory[ad] - 1) & 0xFF;
+                    cpuWrite(ad, (cpuRead(ad) - 1) & 0xFF);
                 case OpCodes.EOR:                   // exclusive or
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
@@ -351,30 +336,36 @@ class NES
             }
             
             cpuTicks += ticks;
+            ppuTicks += ticks * ppuStepSize;
         }
         while (op != -1);
     }
     
-    inline function getAddress(mode:AddressingMode)
+    inline function getAddress(mode:AddressingMode):Int
     {
-        var address:Int=0;
+        var address:Int;
         switch(mode)
         {
-            case AddressingModes.Accumulator: {}
             case AddressingModes.ZeroPage, AddressingModes.Immediate:
-                address = cpuMemory[pc++];
+            {
+                address = cpuRead(pc++);
+            }
             case AddressingModes.ZeroPageX, AddressingModes.ZeroPageY:
-                address = cpuMemory[pc++];
+            {
+                address = cpuRead(pc++);
                 address += (mode==AddressingModes.ZeroPageX) ? x : y;
                 address &= 0xFF;
+            }
             case AddressingModes.Relative:
-                address = getSigned(cpuMemory[pc]);
+            {
+                address = getSigned(cpuRead(pc));
                 address += ++pc;
                 // new page
                 if (address>>8 != pc>>8) ticks += 1;
+            }
             case AddressingModes.Indirect:
-                address = cpuMemory[pc] + (cpuMemory[pc+1] << 8);
-                pc += 2;
+            {
+                address = cpuRead(pc++) + (cpuRead(pc++) << 8);
                 
                 var next_addr = address + 1;
                 if (next_addr & 0xFF == 0)
@@ -382,26 +373,31 @@ class NES
                     next_addr -= 0x0100;
                 }
                 
-                address = cpuMemory[address] + (cpuMemory[next_addr] << 8);
+                address = cpuRead(address) + (cpuRead(next_addr) << 8);
+            }
             case AddressingModes.IndirectX:
-                address = cpuMemory[pc++];
+            {
+                address = cpuRead(pc++);
                 address += x;
                 address &= 0xFF;
-                address = cpuMemory[address] + (cpuMemory[(address+1) & 0xFF] << 8);
+                address = cpuRead(address) + (cpuRead((address+1) & 0xFF) << 8);
+            }
             case AddressingModes.IndirectY:
-                address = cpuMemory[pc++];
-                address = cpuMemory[address] + (cpuMemory[(address+1) & 0xFF] << 8);
+            {
+                address = cpuRead(pc++);
+                address = cpuRead(address) + (cpuRead((address+1) & 0xFF) << 8);
                 
                 // new page
                 if (ticks == 5 && address>>8 != (address+y)>>8) ticks += 1;
                 
                 address += y;
                 address &= 0xFFFF;
+            }
             case AddressingModes.Absolute, 
                  AddressingModes.AbsoluteX, 
                  AddressingModes.AbsoluteY:
-                address = cpuMemory[pc] + (cpuMemory[pc+1] << 8);
-                pc += 2;
+            {
+                address = cpuRead(pc++) + (cpuRead(pc++) << 8);
                 
                 if (mode==AddressingModes.AbsoluteX)
                 {
@@ -419,6 +415,10 @@ class NES
                 }
                 
                 address &= 0xFFFF;
+            }
+            default: {
+                address = 0;
+            }
         }
         
         return address;
@@ -437,7 +437,7 @@ class NES
         {
             case AddressingModes.Immediate: return address & 0xFF;
             case AddressingModes.Accumulator: return accumulator;
-            default: return cpuMemory[address];
+            default: return cpuRead(address);
         }
     }
     
@@ -477,13 +477,12 @@ class NES
     
     inline function pushStack(value:Int)
     {
-        storeMem(0x100+sp, value);
-        sp--;
+        cpuWrite(0x100+sp--, value);
     }
     
     inline function popStack():Int
     {
-        return cpuMemory[0x100 + sp++];
+        return cpuRead(0x100 + sp++);
     }
     
     inline function setFlags(value:Int)
@@ -505,35 +504,29 @@ class NES
         }
         else
         {
-            storeMem(ad, value);
+            cpuWrite(ad, value);
         }
     }
     
-    inline function storeMem(ad:Int, value:Int)
+    inline function cpuWrite(ad:Int, value:Int)
     {
         cpuMemory[ad] = value;
-        if (ad >= 0x2000 && ad <= 0x2007) runPPU();
+        if (ad >= 0x2000 && ad <= 0x4020)
+        {
+            // ppu write
+            ppu.write(ad, value);
+        }
     }
     
-    inline function runPPU()
+    inline function cpuRead(ad:Int):Int
     {
+        if (ad >= 0x2000 && ad <= 0x4020)
+        {
+            return ppu.read(ad);
+        }
+        else
+        {
+            return cpuMemory[ad];
+        }
     }
-
-#if !flash
-    static function main()
-    {
-        var args = Sys.args();
-        var fileName = args[0];
-        
-        trace(fileName);
-        
-        var p = new Processor6502(openfl.Assets.getBytes(fileName), 0x10);
-        var vm = new NES(p);
-        
-        var start = Sys.time();
-        vm.run();
-        trace(vm.cpuTicks + " ticks");
-        trace(Std.int(vm.cpuTicks / (Sys.time() - start) / 1000)/1000 + "MHz");
-    }
-#end
 }

@@ -77,10 +77,74 @@ class OpCodes
     public static inline var DCP:OpCode=65<<pos;
     public static inline var ISB:OpCode=66<<pos;
     
-    public static inline function ticks(code:OpCode)
-    {
-        
-    }
+    public static var opCodeNames=[
+        ORA => "ORA",
+        AND => "AND",
+        EOR => "EOR",
+        ADC => "ADC",
+        STA => "STA",
+        LDA => "LDA",
+        CMP => "CMP",
+        SBC => "SBC",
+        ASL => "ASL",
+        ROL => "ROL",
+        LSR => "LSR",
+        ROR => "ROR",
+        STX => "STX",
+        LDX => "LDX",
+        DEC => "DEC",
+        INC => "INC",
+        BIT => "BIT",
+        JMP => "JMP",
+        JMA => "JMA",
+        STY => "STY",
+        LDY => "LDY",
+        CPY => "CPY",
+        CPX => "CPX",
+        BCC => "BCC",
+        BCS => "BCS",
+        BEQ => "BEQ",
+        BMI => "BMI",
+        BNE => "BNE",
+        BPL => "BPL",
+        BVC => "BVC",
+        BVS => "BVS",
+        BRK => "BRK",
+        CLC => "CLC",
+        CLD => "CLD",
+        CLI => "CLI",
+        CLV => "CLV",
+        DEX => "DEX",
+        DEY => "DEY",
+        INX => "INX",
+        INY => "INY",
+        JSR => "JSR",
+        NOP => "NOP",
+        PHA => "PHA",
+        PHP => "PHP",
+        PLA => "PLA",
+        PLP => "PLP",
+        RTI => "RTI",
+        RTS => "RTS",
+        SEC => "SEC",
+        SED => "SED",
+        SEI => "SEI",
+        TAX => "TAX",
+        TAY => "TAY",
+        TSX => "TSX",
+        TSY => "TSY",
+        TYA => "TYA",
+        TXS => "TXS",
+        TXA => "TXA",
+        LAX => "LAX",
+        SAX => "SAX",
+        RLA => "RLA",
+        SLO => "SLO",
+        SRE => "SRE",
+        RRA => "RRA",
+        DCP => "DCP",
+        ISB => "ISB",
+    ];
 }
 
 
@@ -102,6 +166,21 @@ class AddressingModes
     public static inline var Indirect:AddressingMode=10<<pos;
     public static inline var IndirectX:AddressingMode=11<<pos;
     public static inline var IndirectY:AddressingMode=12<<pos;
+    
+    public static var addressingModeNames = [
+        Accumulator => "Accumulator",
+        Immediate => "Immediate",
+        ZeroPage => "ZeroPage",
+        ZeroPageX => "ZeroPageX",
+        ZeroPageY => "ZeroPageY",
+        Relative => "Relative",
+        Absolute => "Absolute",
+        AbsoluteX => "AbsoluteX",
+        AbsoluteY => "AbsoluteY",
+        Indirect => "Indirect",
+        IndirectX => "IndirectX",
+        IndirectY => "IndirectY",
+    ];
 }
 
 
