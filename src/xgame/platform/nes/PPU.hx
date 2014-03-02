@@ -2,10 +2,13 @@ package xgame.platform.nes;
 
 import haxe.ds.Vector;
 import flash.display.BitmapData;
+import flash.geom.Point;
 
 
 class PPU
 {
+    static var p0 = new Point();
+    
     public static inline var RESOLUTION_X=256;
     public static inline var RESOLUTION_Y=240;
     
@@ -15,8 +18,10 @@ class PPU
     public var statusReg:Int=0;
     
     var nes:NES;
+    var cpu:CPU;
     
     var tiles:Vector<Vector<BitmapData>>;
+    var buffer:BitmapData;
     
     var ppuAddrWrites:Int=0;
     var ppuAddr:Int=0;
@@ -46,18 +51,15 @@ class PPU
     
     public function new(nes:NES)
     {
+        this.nes = nes;
+        this.cpu = nes.cpu;
+        
         screen = new BitmapData(RESOLUTION_X, RESOLUTION_Y);
+        buffer = new BitmapData(RESOLUTION_X, RESOLUTION_Y);
         memory = new Vector(0x4000);
         spriteRam = new Vector(0x100);
         
-        palette = new Vector(defaultPalette.length*3);
-        for (n in 0 ... defaultPalette.length)
-        {
-            for (m in 0 ... 3)
-            {
-                palette[n*3 + m] = defaultPalette[n][m];
-            }
-        }
+        palette = Vector.fromArrayCopy(defaultPalette);
     }
     
     public inline function read(ad:Int):Int
@@ -157,79 +159,120 @@ class PPU
             case 0x4016:
             {
                 // DMA (direct memory access, write CPU memory to sprite RAM)
-                var a = 0x100 * (value&0xFF);
-                for (b in 0 ... 0x100)
-                {
-                    spriteRam[b] = nes.cpu.read(a++);
-                }
+                Vector.blit(cpu.memory, 0x100 * (value&0xFF), spriteRam, 0, 0x100);
+                cpu.ticks += 512;
             }
         }
     }
     
+    static inline var cyclesToScanline:Float = 113+2/3;
+    var ticks:Float = 0;
+    public inline function run(ticks:Float=1)
+    {
+        this.ticks += ticks;
+        while (this.ticks > cyclesToScanline)
+        {
+            drawScanline();
+            this.ticks -= cyclesToScanline;
+        }
+    }
+    
+    var scanline:Int = 0;
+    inline function drawScanline()
+    {
+        scanline += 1;
+        
+        if (scanline == 240)
+        {
+            scanline = 0;
+            render();
+            // vblank
+            statusReg |= 0x80;
+            statusReg ^= (statusReg & 0x40);
+            ticks -= 20;
+        }
+        
+        if (showBg)
+        {
+            
+        }
+        if (showSprites)
+        {
+            
+        }
+    }
+    
+    public inline function render()
+    {
+        trace('render');
+        screen.copyPixels(buffer, buffer.rect, p0);
+        buffer.fillRect(buffer.rect, 0);
+    }
+    
     static var defaultPalette=[
-        [82, 82, 82],
-        [0, 0, 128],
-        [8, 0, 138],
-        [44, 0, 126],
-        [74, 0, 78],
-        [80, 0, 6],
-        [68, 0, 0],
-        [38, 128, 0],
-        [10, 32, 0],
-        [0, 46, 0],
-        [0, 50, 0],
-        [0, 38, 10],
-        [0, 28, 72],
-        [0, 0, 0],
-        [0, 0, 0],
-        [0, 0, 0],
-        [164, 164, 164],
-        [0, 56, 206],
-        [52, 22, 236],
-        [94, 4, 220],
-        [140, 0, 176],
-        [154, 0, 76],
-        [144, 24, 0],
-        [112, 54, 0],
-        [76, 84, 0],
-        [14, 108, 0],
-        [0, 116, 0],
-        [0, 108, 44],
-        [0, 94, 132],
-        [0, 0, 0],
-        [0, 0, 0],
-        [0, 0, 0],
-        [255, 255, 255],
-        [76, 156, 255],
-        [124, 120, 255],
-        [166, 100, 255],
-        [218, 90, 255],
-        [240, 84, 192],
-        [240, 106, 86],
-        [214, 134, 16],
-        [186, 164, 0],
-        [118, 192, 0],
-        [70, 204, 26],
-        [46, 200, 102],
-        [52, 194, 190],
-        [58, 58, 58],
-        [0, 0, 0],
-        [0, 0, 0],
-        [255, 255, 255],
-        [182, 218, 255],
-        [200, 202, 255],
-        [218, 194, 255],
-        [240, 190, 255],
-        [252, 188, 238],
-        [250, 194, 192],
-        [242, 204, 162],
-        [230, 218, 146],
-        [204, 230, 142],
-        [184, 238, 162],
-        [174, 234, 190],
-        [174, 232, 226],
-        [176, 176, 176],
-        [0, 0, 0],
-        [0, 0, 0],
+        82, 82, 82,
+        0, 0, 128,
+        8, 0, 138,
+        44, 0, 126,
+        74, 0, 78,
+        80, 0, 6,
+        68, 0, 0,
+        38, 128, 0,
+        10, 32, 0,
+        0, 46, 0,
+        0, 50, 0,
+        0, 38, 10,
+        0, 28, 72,
+        0, 0, 0,
+        0, 0, 0,
+        0, 0, 0,
+        164, 164, 164,
+        0, 56, 206,
+        52, 22, 236,
+        94, 4, 220,
+        140, 0, 176,
+        154, 0, 76,
+        144, 24, 0,
+        112, 54, 0,
+        76, 84, 0,
+        14, 108, 0,
+        0, 116, 0,
+        0, 108, 44,
+        0, 94, 132,
+        0, 0, 0,
+        0, 0, 0,
+        0, 0, 0,
+        255, 255, 255,
+        76, 156, 255,
+        124, 120, 255,
+        166, 100, 255,
+        218, 90, 255,
+        240, 84, 192,
+        240, 106, 86,
+        214, 134, 16,
+        186, 164, 0,
+        118, 192, 0,
+        70, 204, 26,
+        46, 200, 102,
+        52, 194, 190,
+        58, 58, 58,
+        0, 0, 0,
+        0, 0, 0,
+        255, 255, 255,
+        182, 218, 255,
+        200, 202, 255,
+        218, 194, 255,
+        240, 190, 255,
+        252, 188, 238,
+        250, 194, 192,
+        242, 204, 162,
+        230, 218, 146,
+        204, 230, 142,
+        184, 238, 162,
+        174, 234, 190,
+        174, 232, 226,
+        176, 176, 176,
+        0, 0, 0,
+        0, 0, 0,
         ];
 }

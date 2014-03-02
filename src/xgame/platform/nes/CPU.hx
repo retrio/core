@@ -9,10 +9,14 @@ import xgame.platform.nes.OpCode;
 
 class CPU
 {
+    static inline var ppuStepSize:Float=3;
+    
     public var memory:Vector<Int>;
     public var ticks:Int=0;
     
     var nes:NES;
+    var rom:ROM;
+    var ppu:PPU;
     
     var pc:Int = 0x8000;        // program counter
     var sp:Int = 0xFD;          // stack pointer
@@ -28,22 +32,13 @@ class CPU
     var of:Bool = false;        // overflow
     var nf:Bool = false;        // negative
     
-    var data:Vector<Int>;
     var offset:Int;
     
-    public function new(nes:NES, file:ByteArray, offset:Int)
+    public function new(nes:NES)
     {
         this.nes = nes;
-        
-        data = new Vector(file.length);
-        var pos = 0;
-        while (file.bytesAvailable > 0)
-        {
-            data[pos++] = file.readUnsignedByte();
-        }
-        this.offset = offset;
-        
-        parseHeader();
+        this.rom = nes.rom;
+        this.ppu = nes.ppu;
         
         memory = new Vector(0x10000);
         
@@ -57,36 +52,7 @@ class CPU
             memory[i] = 0xFF;
         }
         
-        // load first program bank
-        for (i in 0x8000...0xBFFF)
-        {
-            memory[i] = getByte(i - 0x8000);
-        }
-        // load second program bank
-        for (i in 0xC000...0xFFFF)
-        {
-            memory[i] = getByte(i - 0xC000);
-        }
-        
         memory[0x2002] = 0x80;
-    }
-    
-    function parseHeader()
-    {
-        var f6 = data[6];
-        var f7 = data[7];
-        
-        var mapper = (f6 & 0xF0 >> 4) + f7 & 0xF0;
-    }
-    
-    public inline function getByte(address:Int):Int
-    {
-        return data[address + offset];
-    }
-    
-    public inline function getOP(address:Int):Command
-    {
-        return Commands.decodeByte(getByte(address));
     }
     
     public inline function run()
@@ -104,13 +70,13 @@ class CPU
             
             var value:Null<Int> = null;
             
-            /*Sys.print(StringTools.hex(pc,4)+" "+
-                      StringTools.rpad(OpCodes.opCodeNames[code], " ", 6)+" "+
-                      StringTools.hex(byte,2));*/
             pc++;
             
+            // get base number of CPU cycles for this operation
+            // (in some cirtumstances, this may increase during execution)
             var ticks = Commands.getTicks(op);
             
+            // execute instruction
             switch (code)
             {
                 case OpCodes.STA:                   // store accumulator
@@ -180,7 +146,7 @@ class CPU
                 case OpCodes.RTS:                   // return from subroutine
                     pc = popStack() + (popStack() << 8) + 1;
                 case OpCodes.RTI:                   // return from interrupt
-                    setFlags(popStack());
+                    popStatus();
                     pc = popStack() + (popStack() << 8);
                 case OpCodes.AND:                   // logical and
                     mode = Commands.getMode(op);
@@ -281,19 +247,9 @@ class CPU
                 case OpCodes.PHA:                   // push accumulator
                     pushStack(accumulator);
                 case OpCodes.PHP:                   // push cpu status
-                    var stackValue = 0;
-                    if (cf) stackValue |= 1;
-                    if (zf) stackValue |= 1<<1;
-                    if (id) stackValue |= 1<<2;
-                    if (dm) stackValue |= 1<<3;
-                    stackValue |= 1<<4;
-                    stackValue |= 1<<5;
-                    if (of) stackValue |= 1<<6;
-                    if (nf) stackValue |= 1<<7;
-                    pushStack(stackValue);
+                    pushStatus();
                 case OpCodes.PLP:                   // pull cpu status
-                    var stackValue = popStack();
-                    setFlags(stackValue);
+                    popStatus();
                 case OpCodes.PLA:                   // pull accumulator
                     accumulator = value = popStack();
                 case OpCodes.INC:                   // increment memory
@@ -422,10 +378,11 @@ class CPU
                     write(ad, v);
                     value = sbc(v);
                 case OpCodes.BRK:
-                    trace("Break");
-                    break;
+                    pushStack(pc);
+                    bc = true;
+                    pc = read(0xFFFE) + (read(0xFFFF) << 8);
                 default:
-                    trace("Instruction $" + StringTools.hex(byte,2) + ") not yet implemented");
+                    trace("Instruction $" + StringTools.hex(byte,2) + " not yet implemented");
                     break;
             }
             
@@ -436,8 +393,9 @@ class CPU
             }
             
             this.ticks += ticks;
+            nes.ppu.run(ticks*ppuStepSize);
             
-            //Sys.print(dump_machine_state() + "\n");
+            Sys.print(dump_machine_state() + "\n");
         }
         while (op != -1);
     }
@@ -586,8 +544,23 @@ class CPU
         return read(0x100 + ++sp);
     }
     
-    inline function setFlags(value:Int)
+    inline function pushStatus()
     {
+        var stackValue = 0;
+        if (cf) stackValue |= 1;
+        if (zf) stackValue |= 1<<1;
+        if (id) stackValue |= 1<<2;
+        if (dm) stackValue |= 1<<3;
+        stackValue |= 1<<4;
+        stackValue |= 1<<5;
+        if (of) stackValue |= 1<<6;
+        if (nf) stackValue |= 1<<7;
+        pushStack(stackValue);
+    }
+    
+    inline function popStatus()
+    {
+        var value = popStack();
         cf = value & 0x1 != 0;
         zf = value & 0x2 != 0;
         id = value & 0x4 != 0;
@@ -613,7 +586,7 @@ class CPU
     {
         if (ad >= 0x2000 && ad <= 0x4020)
         {
-            return nes.ppu.read(ad);
+            return ppu.read(ad);
         }
         else
         {
@@ -627,7 +600,7 @@ class CPU
         if (ad >= 0x2000 && ad <= 0x4020)
         {
             // ppu write
-            nes.ppu.write(ad, value);
+            ppu.write(ad, value);
         }
     }
     

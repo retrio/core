@@ -7,11 +7,13 @@ import flash.display.BitmapData;
 import xgame.platform.nes.CPU;
 import xgame.platform.nes.OpCode;
 import xgame.platform.nes.PPU;
+import xgame.platform.nes.ROM;
 
 
 class NES
 {
     // hardware components
+    public var rom:ROM;
     public var cpu:CPU;
     public var ppu:PPU;
     public var screen(get, never):BitmapData;
@@ -25,18 +27,18 @@ class NES
     
     var ntsc:Bool=true;
     
-    var ppuStepSize:Float=3;
     var scanline:Int=0;
     
-    public function new(file:ByteArray)
+    public function new(rom:ROM)
     {
-        this.cpu = new CPU(this, file, 0x10);
+        this.rom = rom;
+        this.cpu = new CPU(this);
         this.ppu = new PPU(this);
+        
+        rom.mapper.load(this);
         
         cpuMemory = cpu.memory;
         ppuMemory = ppu.memory;
-        
-        if (!ntsc) ppuStepSize = 3.2;
     }
     
     public function run()
