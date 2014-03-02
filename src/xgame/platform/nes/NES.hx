@@ -72,11 +72,13 @@ class NES
             
             var value:Null<Int> = null;
             
-            mode = Commands.getMode(op);
-            trace(StringTools.hex(pc, 4)+" "+
+            /*trace(StringTools.hex(pc, 4)+" "+
                 OpCodes.opCodeNames[code]+" "+
                 AddressingModes.addressingModeNames[mode]+" "+
-                StringTools.hex(byte,2));
+                StringTools.hex(byte,2));*/
+            Sys.print(StringTools.hex(pc,4)+" "+
+                      StringTools.rpad(OpCodes.opCodeNames[code], " ", 6)+" "+
+                      StringTools.hex(byte,2));
             pc++;
             
             ticks = Commands.getTicks(op);
@@ -155,7 +157,7 @@ class NES
                     pc = popStack() + (popStack() << 8) + 1;
                 case OpCodes.RTI:                   // return from interrupt
                     setFlags(popStack());
-                    pc = popStack() + (popStack() << 8) + 1;
+                    pc = popStack() + (popStack() << 8);
                 case OpCodes.AND:                   // logical and
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
@@ -202,7 +204,7 @@ class NES
                      OpCodes.BPL,
                      OpCodes.BVC,
                      OpCodes.BVS:                   // branch
-                    var to_check = switch(code)
+                    var toCheck = switch(code)
                     {
                         case OpCodes.BCC, OpCodes.BCS:
                             cf;
@@ -215,7 +217,7 @@ class NES
                         default: false;
                     }
                     
-                    var check_against = switch(code)
+                    var checkAgainst = switch(code)
                     {
                         case OpCodes.BCS, OpCodes.BEQ, OpCodes.BMI, OpCodes.BVS:
                             true;
@@ -223,18 +225,16 @@ class NES
                             false;
                     }
                     
-                    if (to_check == check_against)
+                    mode = Commands.getMode(op);
+                    var jumpTo = getAddress(mode);
+                    if (toCheck == checkAgainst)
                     {
                         ticks += 1;
-                        mode = Commands.getMode(op);
-                        pc = getAddress(mode);
+                        pc = jumpTo;
                     }
                 case OpCodes.JMP:                   // jump
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    pc = ad;
-                case OpCodes.JMA:                   // jump absolute
-                    ad = getAddress(AddressingModes.Indirect);
                     pc = ad;
                 case OpCodes.LDA:                   // load accumulator
                     mode = Commands.getMode(op);
@@ -257,25 +257,26 @@ class NES
                 case OpCodes.PHA:                   // push accumulator
                     pushStack(accumulator);
                 case OpCodes.PHP:                   // push cpu status
-                    value = 0;
-                    if (cf) value |= 1;
-                    if (zf) value |= 1<<1;
-                    if (id) value |= 1<<2;
-                    if (dm) value |= 1<<3;
-                    value |= 1<<4;
-                    value |= 1<<5;
-                    if (of) value |= 1<<6;
-                    if (nf) value |= 1<<7;
-                    pushStack(value);
+                    var stackValue = 0;
+                    if (cf) stackValue |= 1;
+                    if (zf) stackValue |= 1<<1;
+                    if (id) stackValue |= 1<<2;
+                    if (dm) stackValue |= 1<<3;
+                    stackValue |= 1<<4;
+                    stackValue |= 1<<5;
+                    if (of) stackValue |= 1<<6;
+                    if (nf) stackValue |= 1<<7;
+                    pushStack(stackValue);
                 case OpCodes.PLP:                   // pull cpu status
-                    value = popStack();
-                    setFlags(value);
+                    var stackValue = popStack();
+                    setFlags(stackValue);
                 case OpCodes.PLA:                   // pull accumulator
                     accumulator = value = popStack();
                 case OpCodes.INC:                   // increment cpuMemory
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    cpuWrite(ad, (cpuRead(ad) + 1) & 0xFF);
+                    value = (cpuRead(ad) + 1) & 0xFF;
+                    cpuWrite(ad, value);
                 case OpCodes.INX:                   // increment x
                     x += 1;
                     x &= 0xFF;
@@ -287,7 +288,8 @@ class NES
                 case OpCodes.DEC:                   // decrement cpuMemory
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    cpuWrite(ad, (cpuRead(ad) - 1) & 0xFF);
+                    value = (cpuRead(ad) - 1) & 0xFF;
+                    cpuWrite(ad, value);
                 case OpCodes.EOR:                   // exclusive or
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
@@ -298,7 +300,7 @@ class NES
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     value = getValue(mode, ad);
-                    accumulator = accumulator | value;
+                    accumulator |= value;
                     value = accumulator;
                 case OpCodes.DEX:                   // decrement x
                     x = (x-1) & 0xFF;
@@ -317,10 +319,16 @@ class NES
                 case OpCodes.TYA:                   // transfer y to accumulator
                     accumulator = value = y;
                 case OpCodes.TXS:                   // transfer x to stack pointer
-                    sp = value = x;
+                    sp = x;
                 case OpCodes.TXA:                   // transfer x to accumulator
                     accumulator = value = x;
                 case OpCodes.NOP: {}                // no operation
+                case OpCodes.IGN1: {
+                    pc += 1;
+                }
+                case OpCodes.IGN2: {
+                    pc += 2;
+                }
                 case OpCodes.BRK:
                     trace("Break");
                     break;
@@ -337,6 +345,8 @@ class NES
             
             cpuTicks += ticks;
             ppuTicks += ticks * ppuStepSize;
+            
+            Sys.print(dump_machine_state() + "\n");
         }
         while (op != -1);
     }
@@ -358,8 +368,8 @@ class NES
             }
             case AddressingModes.Relative:
             {
-                address = getSigned(cpuRead(pc));
-                address += ++pc;
+                address = getSigned(cpuRead(pc++));
+                address += pc;
                 // new page
                 if (address>>8 != pc>>8) ticks += 1;
             }
@@ -470,7 +480,7 @@ class NES
         
         if (accumulator < 0) accumulator += 0xFF + 1;
         
-        of = (acc >= 0x80 && accumulator < 0x80);
+        of = (acc > 0x7F && accumulator < 0x7F);
         
         return accumulator;
     }
@@ -482,7 +492,7 @@ class NES
     
     inline function popStack():Int
     {
-        return cpuRead(0x100 + sp++);
+        return cpuRead(0x100 + ++sp);
     }
     
     inline function setFlags(value:Int)
@@ -528,5 +538,23 @@ class NES
         {
             return cpuMemory[ad];
         }
+    }
+    
+    private function dump_machine_state()
+    {
+        var out = " -- ";
+        out += "AC:"+StringTools.hex(accumulator, 2)+" ";
+        out += "RX:"+StringTools.hex(x, 2)+" ";
+        out += "RY:"+StringTools.hex(y, 2)+" ";
+        out += "SP:"+StringTools.hex(sp, 2)+" ";
+        out += (if (cf) "CF" else "xx")+" ";
+        out += (if (zf) "ZF" else "xx")+" ";
+        out += (if (id) "ID" else "xx")+" ";
+        out += (if (dm) "DM" else "xx")+" ";
+        out += (if (bc) "BC" else "xx")+" ";
+        out += (if (of) "OF" else "xx")+" ";
+        out += (if (nf) "NF" else "xx");
+        
+        return out;
     }
 }

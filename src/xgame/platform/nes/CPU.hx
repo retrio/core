@@ -229,6 +229,27 @@ class CPU
             case 0xFD: { code=OpCodes.SBC; mode=AddressingModes.AbsoluteX; ticks=4; }
             case 0xFE: { code=OpCodes.INC; mode=AddressingModes.AbsoluteX; ticks=7; }
             
+            case 0x80, 0x82, 0x89, 0xC2, 0xE2: {
+                code=OpCodes.IGN1;
+            }
+            case 0x04,0x44,0x64: {
+                code=OpCodes.IGN1;
+                ticks=3;
+            }
+            case 0x14,0x34,0x54,0x74,0xD4,0xF4: { 
+                code=OpCodes.IGN1;
+                ticks=4;
+            }
+            case 0x0C: {
+                code=OpCodes.IGN2;
+                ticks = 4;
+            }
+            case 0x1C,0x3C,0x5C,0x7C,0xDC,0xFC: { 
+                code=OpCodes.IGN2;
+                // warning: can be 5 ticks if crossing page boundary    
+                ticks=4;
+            }
+            
             default: code=OpCodes.NOP;
         }
         
