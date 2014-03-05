@@ -78,6 +78,7 @@ class PPU
                 // PPUDATA
                 result = memory[ppuAddr];
                 ppuAddr += addrInc;
+                tilesModified = true;
             }
         }
         return result;
@@ -178,8 +179,15 @@ class PPU
     }
     
     var scanline:Int = 0;
+    var tilesModified:Bool=true;
+    static var p:Point=new Point();
     inline function drawScanline()
     {
+        if (scanline == 0 && tilesModified)
+        {
+            preloadTiles();
+        }
+        
         scanline += 1;
         
         if (scanline == 240)
@@ -192,9 +200,21 @@ class PPU
             ticks -= 20;
         }
         
-        if (showBg)
+        var bgcolor = palette[memory[0x3F00]&0x3F];
+        
+        if (showBg && (scanline%8==0))
         {
-            
+            // draw the background one tile at a time
+            var x0 = scrollX&7;
+            var y0 = scrollY&7;
+            var sx = (scrollX>>3)%64;
+            var sy = ((scrollY+scanline)>>3)%30;
+            for (x in 0 ... 32)
+            {
+                p.x = (x<<3)-x0;
+                p.y = scanline-y0;
+                buffer.copyPixels(tiles[sy][sx], tiles[sy][sx].rect, p);
+            }
         }
         if (showSprites)
         {
@@ -207,6 +227,41 @@ class PPU
         trace('render');
         screen.copyPixels(buffer, buffer.rect, p0);
         buffer.fillRect(buffer.rect, 0);
+    }
+    
+    inline function preloadTiles()
+    {
+        var nameTable:Int = 0x2000;
+        var nameTable2:Int = nameTable == 0x2000 ? 0x2400 : 0x2000;
+        
+        for (y in 0 ... 240)
+        {
+            var ydiv = y>>3;
+            var y7 = y&7;
+            var a0 = nameTable + (ydiv<<5);
+            var a1 = nameTable + 0x3C0 + ((y>>5)<<3);
+            var y0 = (((y>>4)&0x1)<<2);
+            var x0 = 0;
+            for (x in 0 ... 64)
+            {
+                var sqColor = memory[a1];
+                var colUpper = ((((sqColor>>(y0+x0)))&03)<<2);
+                if (x % 4 == 3) a1 += 1;
+                if (x % 2 == 1) x0 ^= 2;
+                var patadr = (memory[a0+x]<<4) + y7;
+                var b1 = memory[bgAddr+patadr];
+                var b2 = memory[bgAddr+patadr+8];
+                for (xi in 0 ... 8)
+                {
+                    var colLower = (b1>>(7-xi))&0x1;
+                    colLower |= ((b2>>(7-xi))&0x1)<<1;
+                    var cpos = 0x3F00+(colUpper+colLower);
+                    if (cpos % 4 == 0) cpos = 0x3F00;
+                    var color = memory[cpos]&0x3F;
+                    tiles[ydiv][x].setPixel(xi,y7,palette[color]);
+                }
+            }
+        }
     }
     
     static var defaultPalette=[

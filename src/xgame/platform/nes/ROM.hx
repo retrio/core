@@ -46,8 +46,8 @@ class ROM
         prgRamSize = file.readUnsignedByte();
         
         prgRom = new Vector(0x4000 * prgSize);
-        chrRom = new Vector(0x2000 * prgSize);
-        prgRam = new Vector(0x2000 * prgSize);
+        chrRom = new Vector(0x2000 * chrSize);
+        prgRam = new Vector(0x2000 * prgRamSize);
         
         mapperNumber = (f6 & 0xF0 >> 4) + f7 & 0xF0;
         var mapperClass = Mapper.mappers[mapperNumber];

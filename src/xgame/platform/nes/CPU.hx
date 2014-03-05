@@ -12,7 +12,7 @@ class CPU
     static inline var ppuStepSize:Float=3;
     
     public var memory:Vector<Int>;
-    public var ticks:Int=0;
+    public var ticks:Float=0;
     
     var nes:NES;
     var rom:ROM;
@@ -32,7 +32,7 @@ class CPU
     var of:Bool = false;        // overflow
     var nf:Bool = false;        // negative
     
-    var offset:Int;
+    var irqRequested:Bool; = false;
     
     public function new(nes:NES)
     {
@@ -55,7 +55,7 @@ class CPU
         memory[0x2002] = 0x80;
     }
     
-    public inline function run()
+    public inline function run(maxCycles:Float=1)
     {
         var op:Command;
         var ad:Int, v:Int;
@@ -397,7 +397,9 @@ class CPU
             
             Sys.print(dump_machine_state() + "\n");
         }
-        while (op != -1);
+        while (ticks < maxCycles);
+        
+        ticks -= maxCycles;
     }
     
     inline function getAddress(mode:AddressingMode):Int
