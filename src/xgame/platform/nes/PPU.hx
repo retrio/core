@@ -14,7 +14,7 @@ class PPU
     
     public var screen:BitmapData;
     public var memory:Vector<Int>;
-    public var spriteRam:Vector<Int>;
+    public var oam:Vector<Int>;
     public var statusReg:Int=0;
     
     var nes:NES;
@@ -41,13 +41,19 @@ class PPU
     var showSprites:Bool=false;
     var colorIntensity:Int=0;
     
-    var spriteRamAddr:Int=0;
+    var oamAddr:Int=0;
     
     var scrollWrites:Int=0;
     var scrollX:Int=0;
     var scrollY:Int=0;
     
     var palette:Vector<Int>;
+    
+    var scanline:Int = 0;
+    var spriteX:Int = 0;
+    var readbuffer:Int = 0;
+    var spriteShiftRegH:Vector<Int>;
+    var spriteShiftRegL:Vector<Int>;
     
     public function new(nes:NES)
     {
@@ -57,23 +63,35 @@ class PPU
         screen = new BitmapData(RESOLUTION_X, RESOLUTION_Y);
         buffer = new BitmapData(RESOLUTION_X, RESOLUTION_Y);
         memory = new Vector(0x4000);
-        spriteRam = new Vector(0x100);
+        oam = new Vector(0x100);
+        for (i in 0 ... 0x100) oam[i] = 0xFF;
         
         palette = Vector.fromArrayCopy(defaultPalette);
+        
+        spriteShiftRegH = new Vector(8);
+        spriteShiftRegL = new Vector(8);
+        
+        statusReg = 0;
     }
     
-    public inline function read(ad:Int):Int
+    public inline function read(reg:Int):Int
     {
         var result:Int = 0;
-        switch(ad)
+        switch(reg)
         {
-            case 0x2002:
+            case 2:
             {
                 // PPUSTATUS
-                result = statusReg;
-                statusReg &= 0x7F;
+                /*result = statusReg;
+                statusReg &= 0x7F;*/
+                result = 0;
             }
-            case 0x2007:
+            case 4:
+            {
+                // read from sprite ram
+                result = oam[oamAddr];
+            }
+            case 7:
             {
                 // PPUDATA
                 result = memory[ppuAddr];
@@ -84,74 +102,74 @@ class PPU
         return result;
     }
     
-    public inline function write(ad:Int, value:Int)
+    public inline function write(reg:Int, data:Int)
     {
-        value &= 0xFF;
-        switch(ad)
+        data &= 0xFF;
+        switch(reg)
         {
-            case 0x2000:
+            case 0:
             {
                 // PPUCTRL
-                nameTableAddr = 0x2000 + (0x400 * value&0x3);
-                addrInc = (value&0x4==1) ? 0x20 : 0x1;
-                spriteAddr = (value&0x8==1) ? 0x1000 : 0x0;
-                bgAddr = (value&0x10==1) ? 0x1000 : 0x0;
-                tallSprites = (value&0x20==1);
-                vBlankNMI = (value&0x80==1);
+                nameTableAddr = 0x2000 + (0x400 * data&0x3);
+                addrInc = (data&0x4==1) ? 0x20 : 0x1;
+                spriteAddr = (data&0x8==1) ? 0x1000 : 0x0;
+                bgAddr = (data&0x10==1) ? 0x1000 : 0x0;
+                tallSprites = (data&0x20==1);
+                vBlankNMI = (data&0x80==1);
             }
-            case 0x2001:
+            case 1:
             {
                 // PPUMASK
-                greyscale = (value&0x1==1);
-                clipBg = (value&0x2==1);
-                clipSprites = (value&0x4==1);
-                showBg = (value&0x8==1);
-                showSprites = (value&0x10==1);
-                colorIntensity = (value>>4);
+                greyscale = (data&0x1==1);
+                clipBg = (data&0x2==1);
+                clipSprites = (data&0x4==1);
+                showBg = (data&0x8==1);
+                showSprites = (data&0x10==1);
+                colorIntensity = (data>>4);
             }
-            case 0x2003:
+            case 3:
             {
                 // OAMADDR
-                spriteRamAddr = value;
+                oamAddr = data;
             }
-            case 0x2004:
+            case 4:
             {
                 // OAMDATA
-                spriteRam[spriteRamAddr] = value;
-                spriteRamAddr = (spriteRamAddr + 1) & 0xFF;
+                oam[oamAddr] = data;
+                oamAddr = (oamAddr + 1) & 0xFF;
             }
-            case 0x2005:
+            case 5:
             {
                 // PPUSCROLL
                 if (scrollWrites == 0)
                 {
                     // horizontal
-                    scrollX = value;
+                    scrollX = data;
                 }
                 else
                 {
                     // vertical
-                    scrollY = value;
+                    scrollY = data;
                 }
             }
-            case 0x2006:
+            case 6:
             {
-                // PPUADDR: write twice to set this register value
+                // PPUADDR: write twice to set this register data
                 if (ppuAddrWrites == 0)
                 {
-                    ppuAddr = value << 8;
+                    ppuAddr = data << 8;
                     ppuAddrWrites = 1;
                 }
                 else
                 {
-                    ppuAddr += value;
+                    ppuAddr += data;
                     ppuAddrWrites = 0;
                 }
             }
-            case 0x2007:
+            case 7:
             {
                 // PPUDATA: write to location specified by PPUADDR
-                memory[ppuAddr] = value;
+                memory[ppuAddr] = data;
                 ppuAddr += addrInc;
             }
             case 0x4014:
@@ -160,10 +178,16 @@ class PPU
             case 0x4016:
             {
                 // DMA (direct memory access, write CPU memory to sprite RAM)
-                Vector.blit(cpu.memory, 0x100 * (value&0xFF), spriteRam, 0, 0x100);
+                Vector.blit(cpu.memory, 0x100 * (data&0xFF), oam, 0, 0x100);
                 cpu.ticks += 512;
             }
         }
+    }
+    
+    public var rendering(get, never):Bool;
+    function get_rendering() {
+        // tells when it's ok to write to the ppu
+        return (scanline >= 240) || (!showBg);
     }
     
     static inline var cyclesToScanline:Float = 113+2/3;
@@ -178,14 +202,13 @@ class PPU
         }
     }
     
-    var scanline:Int = 0;
     var tilesModified:Bool=true;
     static var p:Point=new Point();
     inline function drawScanline()
     {
         if (scanline == 0 && tilesModified)
         {
-            preloadTiles();
+            //preloadTiles();
         }
         
         scanline += 1;

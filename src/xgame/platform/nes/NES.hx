@@ -20,6 +20,7 @@ class NES extends Sprite
     public var rom:ROM;
     public var cpu:CPU;
     public var ppu:PPU;
+    public var mapper:Mapper;
     var screenBmp:Bitmap;
     public var screen(get, never):BitmapData;
     function get_screen()
@@ -40,20 +41,29 @@ class NES extends Sprite
         super();
         
         this.frameRate = frameRate;
-        timer = new Timer(1000/frameRate);
-        timer.run = update;
         
         this.rom = rom;
+        this.mapper = rom.mapper;
         this.cpu = new CPU(this);
         this.ppu = new PPU(this);
         
-        rom.mapper.load(this);
+        mapper.load(this);
         
         screenBmp = new Bitmap(ppu.screen);
         addChild(screenBmp);
         
         //if (Lib.current.stage != null) onStage();
         //else Lib.current.addEventListener(Event.ADDED_TO_STAGE, onStage);
+        
+        cpu.init();
+        
+#if debug
+        cpu.run();
+        Lib.exit();
+#else
+        timer = new Timer(Math.floor(1000/frameRate));
+        timer.run = update;
+#end
     }
     
     public function onStage(e:Event=null)

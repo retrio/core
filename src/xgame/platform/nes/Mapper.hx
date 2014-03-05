@@ -1,37 +1,40 @@
 package xgame.platform.nes;
+import xgame.platform.nes.mappers.NromMapper;
 
 import haxe.ds.Vector;
 
 
+enum MirrorMode
+{
+    H_MIRROR;
+    V_MIRROR;
+    SS_MIRROR0;
+    SS_MIRROR1;
+    FOUR_SCREEN_MIRROR;
+}
+
 class Mapper
 {
     var nes:NES;
+    var rom:ROM;
     
-    public static var mappers = [
-        0 => Mapper0,
-    ];
+    function new()
+    {
+    }
     
-    public function load(nes:NES):Void
+    public static function getMapper(mapperNumber:Int):Mapper
+    {
+        switch (mapperNumber)
+        {
+            case 0: return new NromMapper();
+            default: throw ("Mapper " + mapperNumber + " is not implemented yet.");
+        }
+    }
+    
+    public function load(nes:NES)
     {
         this.nes = nes;
-    }
-    
-    public function read(ad:Int):Int
-    {
-        return nes.cpu.memory[ad];
-    }
-    
-    public function write(ad:Int, value:Int)
-    {
-        // can't write to ROM
-    }
-}
-
-class Mapper0 extends Mapper
-{
-    override public function load(nes:NES)
-    {
-        super.load(nes);
+        this.rom = nes.rom;
         
         // load first program bank
         Vector.blit(nes.rom.prgRom, 0, nes.cpu.memory, 0x8000, 0x4000);
@@ -43,5 +46,15 @@ class Mapper0 extends Mapper
         {
             Vector.blit(nes.rom.chrRom, 0, nes.ppu.memory, 0, 0x2000);
         }
+    }
+    
+    public inline function read(ad:Int):Int
+    {
+        return nes.cpu.memory[ad];
+    }
+    
+    public inline function write(ad:Int, value:Int)
+    {
+        // can't write to ROM
     }
 }

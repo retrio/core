@@ -8,4 +8,27 @@ import xgame.platform.nes.NES;
 import xgame.platform.nes.ROM;
 
 
-typedef Main=NES;
+class Main extends NES {
+    public function new () {
+#if flash
+        var fileName = "assets/roms/nestest.nes";
+#else
+        var args = Sys.args();
+        var fileName = "assets/roms/nestest.nes";
+        if (args.length > 0) fileName = "assets/roms/" + args[0];
+#end
+        
+        var file = openfl.Assets.getBytes(fileName);
+        var rom = new ROM(file);
+        
+        super(rom);
+        
+        var bmp = new Bitmap(screen);
+        addChild(bmp);
+        
+        /*var start = Sys.time();
+        run();
+        trace(cpu.ticks + " ticks");
+        trace(Std.int(cpu.ticks / (Sys.time() - start) / 1000)/1000 + "MHz");*/
+    }
+}

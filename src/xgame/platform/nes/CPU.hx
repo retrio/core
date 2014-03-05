@@ -15,6 +15,7 @@ class CPU
     public var ticks:Float=0;
     
     var nes:NES;
+    var mapper:Mapper;
     var rom:ROM;
     var ppu:PPU;
     
@@ -32,7 +33,7 @@ class CPU
     var of:Bool = false;        // overflow
     var nf:Bool = false;        // negative
     
-    var irqRequested:Bool; = false;
+    var irqRequested:Bool = false;
     
     public function new(nes:NES)
     {
@@ -46,16 +47,40 @@ class CPU
         {
             memory[i] = 0;
         }
+    }
+    
+    public function init()
+    {
+        mapper = nes.rom.mapper;
         
         for (i in 0 ... 0x07FF)
         {
             memory[i] = 0xFF;
         }
         
-        memory[0x2002] = 0x80;
+        memory[0x0008] = 0xF7;
+        memory[0x0009] = 0xEF;
+        memory[0x000A] = 0xDF;
+        memory[0x000F] = 0xBF;
+        
+        for (i in 0x4000 ...  0x400F)
+        {
+            memory[i] = 0;
+        }
+        
+        memory[0x4015] = 0;
+        memory[0x4017] = 0;
     }
     
-    public inline function run(maxCycles:Float=1)
+    public function reset()
+    {
+        pc = (read(0xFFFD) << 8) + read(0xFFFC);
+        write(0x4015, 0);
+        write(0x4017, read(0x4017));
+        id = true;
+    }
+    
+    public inline function run(maxCycles:Null<Float>=null)
     {
         var op:Command;
         var ad:Int, v:Int;
@@ -70,6 +95,11 @@ class CPU
             
             var value:Null<Int> = null;
             
+#if (debug && !flash)
+            Sys.print(StringTools.hex(pc,4)+" "+
+                      StringTools.rpad(OpCodes.opCodeNames[code], " ", 6)+" "+
+                      StringTools.hex(byte,2));
+#end
             pc++;
             
             // get base number of CPU cycles for this operation
@@ -79,10 +109,39 @@ class CPU
             // execute instruction
             switch (code)
             {
+                case OpCodes.ORA:                   // logical or
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    value = getValue(mode, ad);
+                    accumulator |= value;
+                    value = accumulator;
+                case OpCodes.AND:                   // logical and
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
+                    accumulator &= v;
+                    value = accumulator;
+                case OpCodes.EOR:                   // exclusive or
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    value = getValue(mode, ad);
+                    accumulator = value ^ accumulator;
+                    value = accumulator;
+                case OpCodes.ADC:                   // add with carry
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    v = getValue(mode, ad);
+                    value = adc(v);
                 case OpCodes.STA:                   // store accumulator
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     write(ad, accumulator);
+                case OpCodes.LDA:                   // load accumulator
+                    mode = Commands.getMode(op);
+                    ad = getAddress(mode);
+                    accumulator = getValue(mode, ad);
+                    zf = accumulator == 0;
+                    nf = accumulator & 0x80 == 0x80;
                 case OpCodes.STX:                   // store x
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
@@ -127,11 +186,6 @@ class CPU
                     cf = compare_to >= v;
                     zf = compare_to == v;
                     nf = tmp & 0x80 == 0x80;
-                case OpCodes.ADC:                   // add with carry
-                    mode = Commands.getMode(op);
-                    ad = getAddress(mode);
-                    v = getValue(mode, ad);
-                    value = adc(v);
                 case OpCodes.SBC:                   // subtract with carry
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
@@ -148,12 +202,6 @@ class CPU
                 case OpCodes.RTI:                   // return from interrupt
                     popStatus();
                     pc = popStack() + (popStack() << 8);
-                case OpCodes.AND:                   // logical and
-                    mode = Commands.getMode(op);
-                    ad = getAddress(mode);
-                    v = getValue(mode, ad);
-                    accumulator &= v;
-                    value = accumulator;
                 case OpCodes.ASL:                   // arithmetic shift left
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
@@ -226,12 +274,6 @@ class CPU
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     pc = ad;
-                case OpCodes.LDA:                   // load accumulator
-                    mode = Commands.getMode(op);
-                    ad = getAddress(mode);
-                    accumulator = getValue(mode, ad);
-                    zf = accumulator == 0;
-                    nf = accumulator & 0x80 == 0x80;
                 case OpCodes.LDX:                   // load x
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
@@ -270,18 +312,6 @@ class CPU
                     ad = getAddress(mode);
                     value = (read(ad) - 1) & 0xFF;
                     write(ad, value);
-                case OpCodes.EOR:                   // exclusive or
-                    mode = Commands.getMode(op);
-                    ad = getAddress(mode);
-                    value = getValue(mode, ad);
-                    accumulator = value ^ accumulator;
-                    value = accumulator;
-                case OpCodes.ORA:                   // logical or
-                    mode = Commands.getMode(op);
-                    ad = getAddress(mode);
-                    value = getValue(mode, ad);
-                    accumulator |= value;
-                    value = accumulator;
                 case OpCodes.DEX:                   // decrement x
                     x = (x-1) & 0xFF;
                     value = x;
@@ -354,13 +384,13 @@ class CPU
                     v = getValue(mode, ad);
                     cf = v & 1 != 0;
                     value = v >> 1;
-                    write(ad, v);
+                    write(ad, value);
                     accumulator = value ^ accumulator;
                     value = accumulator;
                 case OpCodes.DCP:
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
-                    v = getValue(mode, ad);
+                    v = getValue(mode, ad) - 1;
                     v &= 0xFF;
                     write(ad, v);
                     
@@ -378,9 +408,14 @@ class CPU
                     write(ad, v);
                     value = sbc(v);
                 case OpCodes.BRK:
+#if debug
+                    maxCycles = -1;
+                    break;
+#else
                     pushStack(pc);
                     bc = true;
                     pc = read(0xFFFE) + (read(0xFFFF) << 8);
+#end
                 default:
                     trace("Instruction $" + StringTools.hex(byte,2) + " not yet implemented");
                     break;
@@ -393,13 +428,15 @@ class CPU
             }
             
             this.ticks += ticks;
-            nes.ppu.run(ticks*ppuStepSize);
+            nes.ppu.run(ticks);
             
+#if (debug && !flash)
             Sys.print(dump_machine_state() + "\n");
+#end
         }
-        while (ticks < maxCycles);
+        while (maxCycles == null || ticks < maxCycles);
         
-        ticks -= maxCycles;
+        if (maxCycles != null) ticks -= maxCycles;
     }
     
     inline function getAddress(mode:AddressingMode):Int
@@ -584,29 +621,55 @@ class CPU
         }
     }
     
-    public inline function read(ad:Int):Int
+    public inline function read(addr:Int):Int
     {
-        if (ad >= 0x2000 && ad <= 0x4020)
+        addr &= 0xFFFF;
+        if (addr > 0x4018)
         {
-            return ppu.read(ad);
+            // mapper
+            return memory[addr];
+        }
+        else if (addr < 0x2000)
+        {
+            // write to RAM
+            return memory[addr & 0x7FF];
+        }
+        else if (addr < 0x4000)
+        {
+            // ppu, mirrored 7 bytes of io registers
+            return ppu.read(addr & 7);
         }
         else
         {
-            return memory[ad];
+            // TODO: 0x4000 to 0x4018 = APU read
+            return 0;
         }
     }
     
-    public inline function write(ad:Int, value:Int)
+    public inline function write(addr:Int, data:Int)
     {
-        memory[ad] = value;
-        if (ad >= 0x2000 && ad <= 0x4020)
+        if (addr > 0x4018)
         {
-            // ppu write
-            ppu.write(ad, value);
+            // mapper
+            memory[addr] = data;
+        }
+        else if (addr < 0x2000)
+        {
+            // write to RAM
+            memory[addr] = data;
+        }
+        else if (addr < 0x4000)
+        {
+            // ppu, mirrored 7 bytes of io registers
+            ppu.write(addr & 7, data);
+        }
+        else
+        {
+            // TODO: 0x4000 to 0x4018 = APU write
         }
     }
     
-    function dump_machine_state()
+    inline function dump_machine_state()
     {
         var out = " -- ";
         out += "AC:"+StringTools.hex(accumulator, 2)+" ";

@@ -50,15 +50,7 @@ class ROM
         prgRam = new Vector(0x2000 * prgRamSize);
         
         mapperNumber = (f6 & 0xF0 >> 4) + f7 & 0xF0;
-        var mapperClass = Mapper.mappers[mapperNumber];
-        if (mapperClass == null)
-        {
-            throw ("Mapper " + mapperNumber + " is not implemented yet.");
-        }
-        
-        trace(mapperNumber);
-        
-        mapper = Type.createInstance(mapperClass, []);
+        mapper = Mapper.getMapper(mapperNumber);
         
         for (i in 0...7) file.readByte();
         
