@@ -19,7 +19,7 @@ class CPU
     var rom:ROM;
     var ppu:PPU;
     
-    var pc:Int = 0x8000;        // program counter
+    public var pc:Int = 0x8000; // program counter
     var sp:Int = 0xFD;          // stack pointer
     var accumulator:Int = 0;    // accumulator
     var x:Int = 0;              // x register
@@ -38,8 +38,6 @@ class CPU
     public function new(nes:NES)
     {
         this.nes = nes;
-        this.rom = nes.rom;
-        this.ppu = nes.ppu;
         
         memory = new Vector(0x10000);
         
@@ -51,7 +49,9 @@ class CPU
     
     public function init()
     {
-        mapper = nes.rom.mapper;
+        rom = nes.rom;
+        ppu = nes.ppu;
+        mapper = rom.mapper;
         
         for (i in 0 ... 0x07FF)
         {
@@ -70,6 +70,8 @@ class CPU
         
         memory[0x4015] = 0;
         memory[0x4017] = 0;
+        
+        pc = (read(0xFFFD) << 8) + read(0xFFFC);
     }
     
     public function reset()
@@ -80,7 +82,7 @@ class CPU
         id = true;
     }
     
-    public inline function run(maxCycles:Null<Float>=null)
+    public inline function run(maxCycles:Null<Float>=null, quitOnBreak=false)
     {
         var op:Command;
         var ad:Int, v:Int;
@@ -410,14 +412,12 @@ class CPU
                     write(ad, v);
                     value = sbc(v);
                 case OpCodes.BRK:
-#if debug
-                    maxCycles = -1;
-                    break;
-#else
+                    if (quitOnBreak) {
+                        break;
+                    }
                     pushStack(pc);
                     bc = true;
                     pc = read(0xFFFE) + (read(0xFFFF) << 8);
-#end
                 default:
                     trace("Instruction $" + StringTools.hex(byte,2) + " not yet implemented");
                     break;

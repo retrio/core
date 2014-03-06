@@ -1,5 +1,6 @@
 package;
 
+import flash.Lib;
 import flash.display.Sprite;
 import flash.display.Bitmap;
 import flash.utils.Endian;
@@ -30,5 +31,17 @@ class Main extends NES {
         run();
         trace(cpu.ticks + " ticks");
         trace(Std.int(cpu.ticks / (Sys.time() - start) / 1000)/1000 + "MHz");*/
+        
+        if (StringTools.endsWith(fileName, "nestest.nes"))
+        {
+            // run CPU test, then quit
+            cpu.pc = 0x8000;
+            cpu.run(null, true);
+            Lib.exit();
+        }
+        else
+        {
+            run();
+        }
     }
 }

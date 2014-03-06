@@ -56,14 +56,6 @@ class NES extends Sprite
         //else Lib.current.addEventListener(Event.ADDED_TO_STAGE, onStage);
         
         cpu.init();
-        
-#if debug
-        cpu.run();
-        Lib.exit();
-#else
-        timer = new Timer(Math.floor(1000/frameRate));
-        timer.run = update;
-#end
     }
     
     public function onStage(e:Event=null)
@@ -77,5 +69,11 @@ class NES extends Sprite
     public function update()
     {
         cpu.run(cyclesPerSecond/frameRate);
+    }
+    
+    public function run()
+    {
+        timer = new Timer(Math.floor(1000/frameRate));
+        timer.run = update;
     }
 }
