@@ -86,14 +86,16 @@ class CPU
         var ad:Int, v:Int;
         var code:OpCode;
         var mode:AddressingMode;
+        var value:Null<Int>;
+        var byte:Int;
         
         do
         {
-            var byte = read(pc);
+            byte = read(pc);
             op = Commands.decodeByte(byte);
             code = Commands.getCode(op);
             
-            var value:Null<Int> = null;
+            value = null;
             
 #if (debug && !flash)
             Sys.print(StringTools.hex(pc,4)+" "+

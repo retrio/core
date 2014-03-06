@@ -2,6 +2,7 @@
 <project>
     <meta title="xgame" package="com.monsterface.xgame" version="1.0.0" company="MonsterFace Games"/>
     <app main="Main" path="bin" file="xgame"/>
+    <haxeflag name="--no-inline" if="debug"/>
     
     <window fps="60" background="0x000000"/>
     <window width="256" height="240"/>

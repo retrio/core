@@ -197,7 +197,7 @@ class PPU
         this.ticks += ticks;
         while (this.ticks > cyclesToScanline)
         {
-            drawScanline();
+            //drawScanline();
             this.ticks -= cyclesToScanline;
         }
     }
