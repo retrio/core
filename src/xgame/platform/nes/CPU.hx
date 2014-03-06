@@ -625,50 +625,12 @@ class CPU
     
     public inline function read(addr:Int):Int
     {
-        addr &= 0xFFFF;
-        if (addr > 0x4018)
-        {
-            // mapper
-            return memory[addr];
-        }
-        else if (addr < 0x2000)
-        {
-            // write to RAM
-            return memory[addr & 0x7FF];
-        }
-        else if (addr < 0x4000)
-        {
-            // ppu, mirrored 7 bytes of io registers
-            return ppu.read(addr & 7);
-        }
-        else
-        {
-            // TODO: 0x4000 to 0x4018 = APU read
-            return 0;
-        }
+        return mapper.read(addr);
     }
     
     public inline function write(addr:Int, data:Int)
     {
-        if (addr > 0x4018)
-        {
-            // mapper
-            memory[addr] = data;
-        }
-        else if (addr < 0x2000)
-        {
-            // write to RAM
-            memory[addr] = data;
-        }
-        else if (addr < 0x4000)
-        {
-            // ppu, mirrored 7 bytes of io registers
-            ppu.write(addr & 7, data);
-        }
-        else
-        {
-            // TODO: 0x4000 to 0x4018 = APU write
-        }
+        mapper.write(addr, data);
     }
     
     inline function dump_machine_state()

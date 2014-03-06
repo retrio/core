@@ -79,18 +79,18 @@ class PPU
         var result:Int = 0;
         switch(reg)
         {
-            case 2:
+            case 0x2002:
             {
                 // PPUSTATUS
                 result = statusReg;
                 statusReg &= 0x7F;
             }
-            case 4:
+            case 0x2004:
             {
                 // read from sprite ram
                 result = oam[oamAddr];
             }
-            case 7:
+            case 0x2007:
             {
                 // PPUDATA
                 result = memory[ppuAddr];
@@ -106,7 +106,7 @@ class PPU
         data &= 0xFF;
         switch(reg)
         {
-            case 0:
+            case 0x2000:
             {
                 // PPUCTRL
                 nameTableAddr = 0x2000 + (0x400 * data&0x3);
@@ -116,7 +116,7 @@ class PPU
                 tallSprites = (data&0x20==1);
                 vBlankNMI = (data&0x80==1);
             }
-            case 1:
+            case 0x2001:
             {
                 // PPUMASK
                 greyscale = (data&0x1==1);
@@ -126,18 +126,18 @@ class PPU
                 showSprites = (data&0x10==1);
                 colorIntensity = (data>>4);
             }
-            case 3:
+            case 0x2003:
             {
                 // OAMADDR
                 oamAddr = data;
             }
-            case 4:
+            case 0x2004:
             {
                 // OAMDATA
                 oam[oamAddr] = data;
                 oamAddr = (oamAddr + 1) & 0xFF;
             }
-            case 5:
+            case 0x2005:
             {
                 // PPUSCROLL
                 if (scrollWrites == 0)
@@ -151,7 +151,7 @@ class PPU
                     scrollY = data;
                 }
             }
-            case 6:
+            case 0x2006:
             {
                 // PPUADDR: write twice to set this register data
                 if (ppuAddrWrites == 0)
@@ -165,7 +165,7 @@ class PPU
                     ppuAddrWrites = 0;
                 }
             }
-            case 7:
+            case 0x2007:
             {
                 // PPUDATA: write to location specified by PPUADDR
                 memory[ppuAddr] = data;
@@ -173,6 +173,7 @@ class PPU
             }
             case 0x4014:
             {
+                
             }
             case 0x4016:
             {
