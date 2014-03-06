@@ -71,12 +71,12 @@ class OpCodes
 
     public static inline var LAX:OpCode=60<<pos;    // load both accumulator and X
     public static inline var SAX:OpCode=61<<pos;    // AND, CMP and store
-    public static inline var RLA:OpCode=62<<pos;
-    public static inline var RRA:OpCode=63<<pos;
-    public static inline var SLO:OpCode=64<<pos;
-    public static inline var SRE:OpCode=65<<pos;
-    public static inline var DCP:OpCode=66<<pos;
-    public static inline var ISC:OpCode=67<<pos;
+    public static inline var RLA:OpCode=62<<pos;    // ROL then AND
+    public static inline var RRA:OpCode=63<<pos;    // ROR then ADC
+    public static inline var SLO:OpCode=64<<pos;    // ASL then ORA
+    public static inline var SRE:OpCode=65<<pos;    // LSR then EOR
+    public static inline var DCP:OpCode=66<<pos;    // DEC then COMP
+    public static inline var ISC:OpCode=67<<pos;    // INC then SBC
     
     public static inline var UNKNOWN:OpCode=0;
     

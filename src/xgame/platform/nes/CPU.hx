@@ -350,7 +350,7 @@ class CPU
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     write(ad, x & accumulator);
-                case OpCodes.RLA:
+                case OpCodes.RLA:                   // ROL then AND
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     v = getValue(mode, ad);
@@ -362,7 +362,7 @@ class CPU
                     
                     accumulator &= value;
                     value = accumulator;
-                case OpCodes.RRA:
+                case OpCodes.RRA:                   // ROR then ADC
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     v = getValue(mode, ad);
@@ -373,7 +373,7 @@ class CPU
                     cf = v & 1 != 0;
                     
                     value = accumulator = adc(value);
-                case OpCodes.SLO:
+                case OpCodes.SLO:                   // ASL then ORA
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     v = getValue(mode, ad);
@@ -382,7 +382,7 @@ class CPU
                     write(ad, v);
                     accumulator |= v;
                     value = accumulator;
-                case OpCodes.SRE:
+                case OpCodes.SRE:                   // LSR then EOR
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     v = getValue(mode, ad);
@@ -391,7 +391,7 @@ class CPU
                     write(ad, value);
                     accumulator = value ^ accumulator;
                     value = accumulator;
-                case OpCodes.DCP:
+                case OpCodes.DCP:                   // DEC then CMP
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     v = getValue(mode, ad) - 1;
@@ -404,14 +404,14 @@ class CPU
                     cf = accumulator >= v;
                     zf = accumulator == v;
                     nf = tmp & 0x80 == 0x80;
-                case OpCodes.ISC:
+                case OpCodes.ISC:                   // INC then SBC
                     mode = Commands.getMode(op);
                     ad = getAddress(mode);
                     v = getValue(mode, ad);
                     v = (v+1) & 0xFF;
                     write(ad, v);
                     value = sbc(v);
-                case OpCodes.BRK:
+                case OpCodes.BRK:                   // break
                     if (quitOnBreak) {
                         break;
                     }
@@ -419,7 +419,7 @@ class CPU
                     bc = true;
                     pc = read(0xFFFE) + (read(0xFFFF) << 8);
                 default:
-                    trace("Instruction $" + StringTools.hex(byte,2) + " not yet implemented");
+                    trace("Instruction $" + StringTools.hex(byte,2) + " not implemented");
                     break;
             }
             
@@ -628,7 +628,7 @@ class CPU
         return mapper.read(addr);
     }
     
-    public inline function write(addr:Int, data:Int)
+    public inline function write(addr:Int, data:Int):Void
     {
         mapper.write(addr, data);
     }
