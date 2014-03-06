@@ -82,9 +82,8 @@ class PPU
             case 2:
             {
                 // PPUSTATUS
-                /*result = statusReg;
-                statusReg &= 0x7F;*/
-                result = 0;
+                result = statusReg;
+                statusReg &= 0x7F;
             }
             case 4:
             {
