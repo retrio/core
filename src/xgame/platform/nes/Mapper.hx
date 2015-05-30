@@ -1,111 +1,179 @@
 package xgame.platform.nes;
-import xgame.platform.nes.mappers.NromMapper;
+import xgame.platform.nes.mappers.*;
 
 import haxe.ds.Vector;
 
 
-enum MirrorMode
-{
-    H_MIRROR;
-    V_MIRROR;
-    SS_MIRROR0;
-    SS_MIRROR1;
-    FOUR_SCREEN_MIRROR;
-}
-
 class Mapper
 {
-    var nes:NES;
-    var rom:ROM;
-    var cpu:CPU;
-    var ppu:PPU;
-    var cpuMemory:Vector<Int>;
-    
-    // this is an abstract base class
-    function new()
-    {
-    }
-    
-    public static function getMapper(mapperNumber:Int):Mapper
-    {
-        switch (mapperNumber)
-        {
-            case 0: return new NromMapper();
-            default: throw ("Mapper " + mapperNumber + " is not implemented yet.");
-        }
-    }
-    
-    public function load(nes:NES)
-    {
-        this.nes = nes;
-        this.rom = nes.rom;
-        this.cpu = nes.cpu;
-        this.ppu = nes.ppu;
-        this.cpuMemory = cpu.memory;
-        
-        // load first program bank
-        Vector.blit(nes.rom.prgRom, 0, cpuMemory, 0x8000, 0x4000);
-        // load second program bank
-        var bank = nes.rom.prgSize > 1 ? 1 : 0;
-        Vector.blit(nes.rom.prgRom, bank*0x4000, cpuMemory, 0xC000, 0x4000);
-        // load character rom
-        if (nes.rom.chrSize > 0)
-        {
-            Vector.blit(nes.rom.chrRom, 0, nes.ppu.memory, 0, 0x2000);
-        }
-    }
-    
-    public inline function read(addr:Int):Int
-    {
-        addr &= 0xFFFF;
-        if (addr > 0x4020)
-        {
-            // cartridge space
-            return cpuMemory[addr];
-        }
-        else if (addr < 0x2000)
-        {
-            // write to RAM
-            return cpuMemory[addr & 0x7FF];
-        }
-        else if (addr < 0x4000)
-        {
-            // ppu, mirrored 7 bytes of io registers
-            return ppu.read(0x2000 + (addr & 7));
-        }
-        else
-        {
-            // TODO: 0x4000 to 0x4020 = APU and IO registers
-            return 0;
-        }
-    }
-    
-    public inline function write(addr:Int, data:Int)
-    {
-        if (addr > 0x4020)
-        {
-            // cartridge space
-            cpuMemory[addr] = data;
-        }
-        else if (addr < 0x2000)
-        {
-            // write to RAM (mirrored)
-            cpuMemory[addr & 0x7FF] = data;
-        }
-        else if (addr < 0x4000)
-        {
-            // ppu, mirrored 7 bytes of io registers
-            ppu.write(0x2000 + (addr & 7), data);
-        }
-        else
-        {
-            // TODO: 0x4000 to 0x4020 = APU and IO registers
-            switch(addr)
-            {
-                case 0x4016:
-                    // DMA
-                    ppu.write(addr, data);
-            }
-        }
-    }
+	public var rom:ROM;
+	public var ram:RAM;
+	public var ppu:PPU;
+
+	// nametable pointers
+	public var nt0:Vector<Int>;
+	public var nt1:Vector<Int>;
+	public var nt2:Vector<Int>;
+	public var nt3:Vector<Int>;
+
+	public var mirror(default, set):MirrorMode;
+	function set_mirror(m:MirrorMode)
+	{
+		switch(m)
+		{
+			case H_MIRROR:
+				nt0 = ppu.t0;
+				nt1 = ppu.t0;
+				nt2 = ppu.t1;
+				nt3 = ppu.t1;
+
+			case V_MIRROR:
+				nt0 = ppu.t0;
+				nt1 = ppu.t1;
+				nt2 = ppu.t0;
+				nt3 = ppu.t1;
+
+			case SS_MIRROR0:
+				nt0 = ppu.t0;
+				nt1 = ppu.t0;
+				nt2 = ppu.t0;
+				nt3 = ppu.t0;
+
+			case SS_MIRROR1:
+				nt0 = ppu.t1;
+				nt1 = ppu.t1;
+				nt2 = ppu.t1;
+				nt3 = ppu.t1;
+
+			case FOUR_SCREEN_MIRROR:
+				nt0 = ppu.t0;
+				nt1 = ppu.t1;
+				nt2 = ppu.t2;
+				nt3 = ppu.t3;
+		}
+		return mirror = m;
+	}
+
+	// this is an abstract class
+	function new()
+	{
+
+	}
+
+	public static function getMapper(mapperNumber:Int):Mapper
+	{
+		return switch (mapperNumber)
+		{
+			case 0: new NromMapper();
+			default: throw ("Mapper " + mapperNumber + " is not implemented yet.");
+		}
+	}
+
+	public function init(ppu:PPU, rom:ROM, ram:RAM)
+	{
+		this.ppu = ppu;
+		this.rom = rom;
+		this.ram = ram;
+
+		mirror = rom.mirror;
+	}
+
+	public function read(addr:Int)
+	{
+		if (addr >= 0x8000)
+		{
+			return rom.prgRom[rom.prgMap[((addr & 0x7fff)) >> 10] + (addr & 0x3ff)];
+		}
+		else if (addr >= 0x6000 && rom.hasPrgRam)
+		{
+			return rom.prgRam[addr & 0x1fff];
+		}
+		else return addr >> 8;
+	}
+
+	public function write(addr:Int, data:Int)
+	{
+		if (addr >= 0x6000 && addr < 0x8000)
+		{
+			rom.prgRam[addr & 0x1fff] = data;
+		}
+	}
+
+	public function ppuRead(addr:Int)
+	{
+		if (addr < 0x2000)
+		{
+			var result = rom.chrRom[rom.chrMap[addr >> 10] + (addr & 1023)];
+			return result == null ? 0 : result;
+		}
+		else
+		{
+			switch (addr & 0xc00)
+			{
+				case 0:
+					return nt0[addr & 0x3ff];
+
+				case 0x400:
+					return nt1[addr & 0x3ff];
+
+				case 0x800:
+					return nt2[addr & 0x3ff];
+
+				default:
+					if (addr >= 0x3f00)
+					{
+						addr &= 0x1f;
+						if (addr >= 0x10 && ((addr & 3) == 0))
+						{
+							addr -= 0x10;
+						}
+						return ppu.pal[addr];
+					}
+					else
+					{
+						return nt3[addr & 0x3ff];
+					}
+			}
+		}
+	}
+
+	public function ppuWrite(addr:Int, data:Int)
+	{
+		addr &= 0x3fff;
+
+		switch (addr & 0xc00)
+		{
+			case 0x0:
+				nt0[addr & 0x3ff] = data;
+
+			case 0x400:
+				nt1[addr & 0x3ff] = data;
+
+			case 0x800:
+				nt2[addr & 0x3ff] = data;
+
+			case 0xc00:
+				if (addr >= 0x3f00 && addr <= 0x3fff)
+				{
+					addr &= 0x1f;
+					if (addr >= 0x10 && ((addr & 3) == 0))
+					{
+						// mirrors
+						addr -= 0x10;
+					}
+					ppu.pal[addr] = (data & 0x3f);
+				}
+				else
+				{
+					nt3[addr & 0x3ff] = data;
+				}
+
+			default:
+		}
+	}
+
+	public function onLoad() {}
+	public function onReset() {}
+	public function onCpuCycle(cycles:Int) {}
+	public function onScanline(scanline:Int) {}
 }
