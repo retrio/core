@@ -24,49 +24,54 @@ class PPU
 
 	public var bitmap:Vector<Int> = new Vector(240 * 256);
 
-	var loopyVWrites:Int = 0;
-	var loopyV:Int = 0;
-	var loopyT:Int = 0;
-	var loopyX:Int = 0;
-
-	var vraminc:Int=0x1;			// increase 1 across or 32 down
+	var vramAddr:Int = 0;
+	var vramAddrTemp:Int = 0;
+	var xScroll:Int = 0;
 	var even = true;
-	var bgpattern = true;
-	var sprpattern = false;
-	var greyscale:Bool = false;
+
+	var bgPatternAddr = 0;
+	var sprPatternAddr = 0;
 
 	var oamAddr:Int = 0;
-
-	var scrollWrites:Int = 0;
-	var scrollX:Int = 0;
-	var scrollY:Int = 0;
 
 	var bgShiftRegH:Int = 0;
 	var bgShiftRegL:Int = 0;
 	var bgAttrShiftRegH:Int = 0;
 	var bgAttrShiftRegL:Int = 0;
 	var scanline:Int = 0;
-	var spriteX:Int = 0;
-	var ppuregs:Vector<Int> = new Vector(8);
+	// $2000 PPUCTRL registers
+	var nmiEnabled:Bool = false;
+	var ntAddr:Int = 0;
+	var vramInc:Int = 1;
+	var tallSprites:Bool = false;
+	// $2001 PPUMASK registers
+	var greyscale:Bool = false;
+	var bgClip:Bool = false;
+	var sprClip:Bool = false;
+	var bgRender:Bool = false;
+	var sprRender:Bool = false;
+	var emph:Int = 0;
+	// $2002 PPUSTATUS registers
+	var spriteOverflow:Bool = false;
+	var sprite0:Bool = false;
+	var vblank:Bool = false;
+
 	var spritebgflags:Vector<Bool> = new Vector(8);
-	var spriteshiftregH:Vector<Int> = new Vector(8);
-	var spriteshiftregL:Vector<Int> = new Vector(8);
+	var spriteShiftRegH:Vector<Int> = new Vector(8);
+	var spriteShiftRegL:Vector<Int> = new Vector(8);
 	var spriteXlatch:Vector<Int> = new Vector(8);
 	var spritepals:Vector<Int> = new Vector(8);
-	var bgcolors:Vector<Int> = new Vector(8);
 	var openBus:Int = 0;
 	var readBuffer:Int = 0;
-	var div:Int = 0;
+	var div:Int = 2;
 	var frameCount:Int = 0;
-	var tileaddr:Int = 0;
-	var nextattr:Int = 0;
+	var tileAddr:Int = 0;
+	var nextAttr:Int = 0;
 	var linelowbits:Int = 0;
 	var linehighbits:Int = 0;
 	var penultimateattr:Int = 0;
 
-	var dotcrawl:Bool = true;
 	var off:Int = 0;
-	var y:Int = 0;
 	var index:Int = 0;
 	var sprpxl:Int = 0;
 	var found:Int = 0;
@@ -75,14 +80,7 @@ class PPU
 	var enabled(get, never):Bool;
 	inline function get_enabled()
 	{
-		return true;//Util.getbit(ppuregs[1], 3) || Util.getbit(ppuregs[1], 4);
-	}
-
-	var vblank(default, set):Bool = false;
-	inline function set_vblank(b:Bool)
-	{
-		ppuregs[2] = Util.setbit(ppuregs[2], 7, b);
-		return vblank = b;
+		return bgRender || sprRender;
 	}
 
 	public function new(mapper:Mapper, cpu:CPU)
@@ -94,49 +92,37 @@ class PPU
 
 		for (i in 0 ... oam.length) oam[i] = 0xFF;
 		for (i in 0 ... bitmap.length) bitmap[i] = 0;
-		for (i in 0 ... ppuregs.length) ppuregs[i] = 0;
-		for (i in 0 ... t0.length) t0[i] = 0xa0;
-		for (i in 0 ... t1.length) t1[i] = 0xb0;
-		for (i in 0 ... t2.length) t2[i] = 0xc0;
-		for (i in 0 ... t3.length) t3[i] = 0xd0;
+		for (i in 0 ... t0.length) t0[i] = 0x00;
+		for (i in 0 ... t1.length) t1[i] = 0x00;
+		for (i in 0 ... t2.length) t2[i] = 0x00;
+		for (i in 0 ... t3.length) t3[i] = 0x00;
 
-		bgcolors = new Vector(256);
 		pal = Vector.fromArrayCopy(defaultPalette);
 	}
 
-	public function clockLine(scanline:Int)
+	public inline function runFrame()
 	{
-		this.scanline = scanline;
-		if (scanline == 0) ++frameCount;
-		var skip = (scanline == 0
-			&& Util.getbit(ppuregs[1], 3)
-			&& !Util.getbit(frameCount, 1)) ? 1 : 0;
-		for (i in skip ... 341)
+		++frameCount;
+		scanline = 0;
+		cycles = 0;
+		for (i in 0 ... (262*341))
 		{
-			cycles = i;
 			clock();
+			if (++cycles > 341)
+			{
+				cycles = 0;
+				++scanline;
+			}
 		}
 	}
 
-	public function clock()
+	public inline function clock()
 	{
-		bgpattern = Util.getbit(ppuregs[0], 4);
-		sprpattern = Util.getbit(ppuregs[0], 3);
-		//cycle based ppu stuff will go here
-		if (cycles == 1)
-		{
-			if (scanline == 0)
-			{
-				dotcrawl = enabled;
-			}
-			if (scanline < 240)
-			{
-				bgcolors[scanline] = pal[0];
-			}
-		}
+		var enabled = enabled;
+
 		if (scanline < 240 || scanline == 261)
 		{
-			//on all rendering lines
+			// visible scanlines
 			if (enabled
 				&& ((cycles >= 1 && cycles <= 256)
 				|| (cycles >= 321 && cycles <= 336)))
@@ -146,14 +132,14 @@ class PPU
 			}
 			else if (cycles == 257 && enabled)
 			{
-				//horizontal bits of loopyV = loopyT
-				loopyV &= ~0x41f;
-				loopyV |= loopyT & 0x41f;
+				//horizontal bits of vramAddr = vramAddrTemp
+				vramAddr &= ~0x41f;
+				vramAddr |= vramAddrTemp & 0x41f;
 			}
 			else if (cycles > 257 && cycles <= 341)
 			{
 				//clear the oam address from pxls 257-341 continuously
-				ppuregs[3] = 0;
+				oamAddr = 0;
 			}
 			if ((cycles == 340) && enabled)
 			{
@@ -174,12 +160,14 @@ class PPU
 			if (scanline == 261)
 			{
 				if (cycles == 0)
-				{// turn off vblank, sprite 0, sprite overflow flags
-					vblank = false;
-					ppuregs[2] &= 0x9F;
-				} else if (cycles >= 280 && cycles <= 304 && enabled) {
-					//loopyV = (all of)loopyT for each of these cycles
-					loopyV = loopyT;
+				{
+					// turn off vblank, sprite 0, sprite overflow flags
+					vblank = sprite0 = spriteOverflow = false;
+				}
+				else if (cycles >= 280 && cycles <= 304 && enabled)
+				{
+					//vramAddr = (all of)vramAddrTemp for each of these cycles
+					vramAddr = vramAddrTemp;
 				}
 			}
 		}
@@ -192,12 +180,12 @@ class PPU
 		{
 			if (cycles >= 1 && cycles <= 256)
 			{
-				var bufferoffset = (scanline << 8) + (cycles - 1);
+				var bufferOffset = (scanline << 8) + (cycles - 1);
 				//bg drawing
-				if (Util.getbit(ppuregs[1], 3))
+				if (bgRender)
 				{
 					//if background is on, draw a line of that
-					var isBG = drawBGPixel(bufferoffset);
+					var isBG = drawBGPixel(bufferOffset);
 					//sprite drawing
 					drawSprites(scanline << 8, cycles - 1, isBG);
 				}
@@ -205,22 +193,20 @@ class PPU
 				{
 					//rendering is off, so draw either the background color OR
 					//if the PPU address points to the palette, draw that color instead.
-					var bgcolor = ((loopyV > 0x3f00 && loopyV < 0x3fff) ? mapper.ppuRead(loopyV) : pal[0]);
-					bitmap[bufferoffset] = bgcolor;
+					var bgcolor = ((vramAddr > 0x3f00 && vramAddr < 0x3fff) ? mapper.ppuRead(vramAddr) : pal[0]);
+					bitmap[bufferOffset] = bgcolor;
 				}
 				//deal with the grayscale flag
-				if (Util.getbit(ppuregs[1], 0))
+				if (greyscale)
 				{
-					bitmap[bufferoffset] &= 0x30;
+					bitmap[bufferOffset] &= 0x30;
 				}
 				//handle color emphasis
-				var emph = (ppuregs[1] & 0xe0) << 1;
-				bitmap[bufferoffset] = (bitmap[bufferoffset] & 0x3f) | emph;
-
+				bitmap[bufferOffset] = (bitmap[bufferOffset] & 0x3f) | emph;
 			}
 		}
 		//handle nmi
-		if (vblank && Util.getbit(ppuregs[0], 7))
+		if (vblank && nmiEnabled)
 		{
 			//pull NMI line on when conditions are right
 			cpu.nmi = true;
@@ -241,14 +227,6 @@ class PPU
 		{
 			mapper.onScanline(scanline);
 		}
-		else if (cycles == 340)
-		{
-			/*scanline = (scanline + 1) % 262;
-			if (scanline == 0)
-			{
-				++frameCount;
-			}*/
-		}
 	}
 
 	public inline function read(reg:Int):Int
@@ -257,95 +235,102 @@ class PPU
 		switch(reg)
 		{
 			case 2:
-			{
 				// PPUSTATUS
 				even = true;
-				openBus = (ppuregs[2] & 0xe0) + (openBus & 0x1f);
+				openBus = ((spriteOverflow ? 1 : 0) << 5) |
+					((sprite0 ? 1 : 0) << 6) |
+					((vblank ? 1 : 0) << 7) |
+					(openBus & 0x1f);
 				vblank = false;
-			}
+
 			case 4:
-			{
 				// read from sprite ram
 				openBus = oam[oamAddr];
-			}
+
 			case 7:
-			{
 				// PPUDATA
 				// read is buffered and returned next time
 				// unless reading from sprite memory
-				if ((loopyV & 0x3fff) < 0x3f00)
+				if ((vramAddr & 0x3fff) < 0x3f00)
 				{
 					openBus = readBuffer;
-					readBuffer = mapper.ppuRead(loopyV & 0x3FFF);
+					readBuffer = mapper.ppuRead(vramAddr);
 				}
 				else
 				{
-					readBuffer = mapper.ppuRead((loopyV & 0x3fff) - 0x1000);
-					openBus = mapper.ppuRead(loopyV);
+					readBuffer = mapper.ppuRead((vramAddr & 0x3fff) - 0x1000);
+					openBus = mapper.ppuRead(vramAddr);
 				}
 				if (!enabled || scanline > 240 && scanline < 261)
 				{
-					loopyV += vraminc;
+					vramAddr += vramInc;
 				}
 				else
 				{
-					incLoopyVHoriz();
-					incLoopyVVert();
+					incrementX();
+					incrementY();
 				}
-			}
+
+			default: {}
 		}
 		return openBus;
 	}
 
 	public inline function write(reg:Int, data:Int)
 	{
-		data &= 0xFF;
 		openBus = data;
 
 		switch(reg)
 		{
 			case 0:
 				// PPUCTRL
-				//trace(StringTools.hex(data));
-				ppuregs[0] = data;
-				vraminc = Util.getbit(data, 2) ? 32 : 1;
-				loopyT &= 0xeff;
-				loopyT += (data & 3) << 10;
+				vramAddrTemp &= 0xeff;
+				vramAddrTemp += (data & 3) << 10;
+				vramInc = Util.getbit(data, 2) ? 32 : 1;
+				sprPatternAddr = Util.getbit(data, 3) ? 0x1000 : 0;
+				bgPatternAddr = Util.getbit(data, 4) ? 0x1000 : 0;
+				tallSprites = Util.getbit(data, 5);
+				//ppu master/slave?
+				nmiEnabled = Util.getbit(data, 7);
 
 			case 1:
 				// PPUMASK
-				ppuregs[1] = data;
+				greyscale = Util.getbit(data, 0);
+				bgClip = Util.getbit(data, 1);
+				sprClip = Util.getbit(data, 2);
+				bgRender = Util.getbit(data, 3);
+				sprRender = Util.getbit(data, 4);
+				emph = (data & 0xe0) << 1;
 
 			case 3:
 				// OAMADDR
-				oamAddr = data & 0xFF;
+				oamAddr = data;
 
 			case 4:
 				// OAMDATA
-				if ((oamAddr & 3) == 2) {
-					oam[oamAddr++] = (data & 0xE3);
-				} else {
+				if (!(enabled && scanline <= 239))
+				{
 					oam[oamAddr++] = data;
+					oamAddr &= 0xff;
 				}
-				oamAddr &= 0xff;
 
 			case 5:
 				// PPUSCROLL
-				if (even) {
+				if (even)
+				{
 					// update horizontal scroll
-					loopyT &= ~0x1f;
-					loopyX = data & 7;
-					loopyT += data >> 3;
-
+					vramAddrTemp &= 0xffe0;
+					xScroll = data & 7;
+					vramAddrTemp += data >> 3;
 					even = false;
 				}
 				else
 				{
 					// update vertical scroll
-					loopyT &= ~0x7000;
-					loopyT |= ((data & 7) << 12);
-					loopyT &= ~0x3e0;
-					loopyT |= (data & 0xf8) << 2;
+					vramAddrTemp &= 0x8fff;
+					vramAddrTemp |= ((data & 7) << 12);
+					vramAddrTemp &= 0xfc1f;
+					vramAddrTemp |= (data & 0xf8) << 2;
 					even = true;
 				}
 
@@ -354,26 +339,26 @@ class PPU
 				if (even)
 				{
 					// high byte
-					loopyT &= 0xc0ff;
-					loopyT |= ((data & 0x3f) << 8);
-					loopyT &= 0x3fff;
+					vramAddrTemp &= 0xc0ff;
+					vramAddrTemp |= ((data & 0x3f) << 8);
+					vramAddrTemp &= 0x3fff;
 					even = false;
 				}
 				else
 				{
-					loopyT &= 0x7f00;
-					loopyT |= data;
-					loopyV = loopyT;
+					vramAddrTemp &= 0x7f00;
+					vramAddrTemp |= data;
+					vramAddr = vramAddrTemp;
+					//trace(StringTools.hex(vramAddr));
 					even = true;
 				}
 
 			case 7:
-				// PPUDATA: write to location specified by loopyV
-				//memory[loopyV] = data;
-				mapper.ppuWrite((loopyV & 0x3fff), data);
-				if (enabled || (scanline > 240 && scanline < 261))
+				// PPUDATA: write to location specified by vramAddr
+				mapper.ppuWrite((vramAddr & 0x3fff), data);
+				if (!enabled || (scanline > 240 && scanline < 261))
 				{
-					loopyV += vraminc;
+					vramAddr += vramInc;
 				}
 				else
 				{
@@ -381,56 +366,66 @@ class PPU
 					//and vert counters erroneously.
 					if (((cycles - 1) & 7) != 7)
 					{
-						incLoopyVHoriz();
-						incLoopyVVert();
+						incrementX();
+						incrementY();
 					}
 				}
 		}
 	}
 
-	function incLoopyVVert()
+	inline function incrementY()
 	{
-		var newfinescroll = (loopyV & 0x7000) + 0x1000;
-		loopyV &= ~0x7000;
-		if (newfinescroll > 0x7000)
+		if (vramAddr & 0x7000 != 0x7000)
 		{
 			//reset the fine scroll bits and increment tile address to next row
-			loopyV += 32;
+			vramAddr += 0x1000;
 		}
 		else
 		{
+			vramAddr &= 0x8fff;
+			var y = (vramAddr & 0x03e0) >> 5;
+			if (y == 29)
+			{
+				y = 0;
+				vramAddr ^= 0x0800;
+			}
+			else if (y == 31)
+			{
+				y = 0;
+			}
+			else
+			{
+				++y;
+			}
 			//increment the fine scroll
-			loopyV += newfinescroll;
-		}
-		if (((loopyV >> 5) & 0x1f) == 30)
-		{
-			//if incrementing loopy_v to the next row pushes us into the next
-			//nametable, zero the "row" bits and go to next nametable
-			loopyV &= ~0x3e0;
-			loopyV ^= 0x800;
+			vramAddr = (vramAddr & 0xfc1f) | (y << 5);
 		}
 	}
 
-	function incLoopyVHoriz()
+	inline function incrementX()
 	{
-		//increment horizontal part of loopyv
-		if ((loopyV & 0x001F) == 31) // if coarse X == 31
+		//increment horizontal part of vramAddr
+		// if coarse X == 31
+		if ((vramAddr & 0x001F) == 31)
 		{
-			loopyV &= ~0x001F; // coarse X = 0
-			loopyV ^= 0x0400;// switch horizontal nametable
+			// coarse X = 0
+			vramAddr &= 0xFFE0;
+			// switch horizontal nametable
+			vramAddr ^= 0x0400;
 		}
 		else
 		{
-			loopyV += 1;// increment coarse X
+			// increment coarse X
+			++vramAddr;
 		}
 	}
 
-	function bgFetch()
+	inline function bgFetch()
 	{
 		//fetch tiles for background
-		//on real PPU this logic is repurposed for sprite fetches as well
-		bgAttrShiftRegH |= ((nextattr >> 1) & 1);
-		bgAttrShiftRegL |= (nextattr & 1);
+		bgAttrShiftRegH |= ((nextAttr >> 1) & 1);
+		bgAttrShiftRegL |= (nextAttr & 1);
+
 		//background fetches
 		switch ((cycles - 1) & 7)
 		{
@@ -438,71 +433,74 @@ class PPU
 				fetchNTByte();
 
 			case 3:
-				//fetch attribute (FIX MATH)
-				penultimateattr = getAttribute(((loopyV & 0xc00) + 0x23c0),
-						(loopyV) & 0x1f,
-						(((loopyV) & 0x3e0) >> 5));
+				//fetch attribute
+				penultimateattr = getAttribute(((vramAddr & 0xc00) | 0x23c0),
+								(vramAddr) & 0x1f,
+								(((vramAddr) & 0x3e0) >> 5));
 
 			case 5:
 				//fetch low bg byte
-				linelowbits = mapper.ppuRead((tileaddr)
-						+ ((loopyV & 0x7000) >> 12));
+				linelowbits = mapper.ppuRead((tileAddr) + ((vramAddr & 0x7000) >> 12));
 
 			case 7:
 				//fetch high bg byte
-				linehighbits = mapper.ppuRead((tileaddr) + 8
-						+ ((loopyV & 0x7000) >> 12));
+				linehighbits = mapper.ppuRead((tileAddr) + 8
+						+ ((vramAddr & 0x7000) >> 12));
 				bgShiftRegL |= linelowbits;
 				bgShiftRegH |= linehighbits;
-				nextattr = penultimateattr;
-				if (cycles != 256) {
-					incLoopyVHoriz();
-				} else {
-					incLoopyVVert();
+				nextAttr = penultimateattr;
+				if (cycles != 256)
+				{
+					incrementX();
+				}
+				else
+				{
+					incrementY();
 				}
 
 			default: {}
 		}
 
-		if (cycles >= 321 && cycles <= 336) {
+		if (cycles >= 321 && cycles <= 336)
+		{
 			bgShiftClock();
 		}
 	}
 
-	function fetchNTByte()
+	inline function fetchNTByte()
 	{
 		//fetch nt byte
-		tileaddr = mapper.ppuRead(
-				((loopyV & 0xc00) | 0x2000) + (loopyV & 0x3ff)) * 16
-				+ (bgpattern ? 0x1000 : 0);
+		tileAddr = (mapper.ppuRead(
+				((vramAddr & 0xc00) | 0x2000) + (vramAddr & 0x3ff)) << 4)
+				+ (bgPatternAddr);
 	}
 
-	function drawBGPixel(bufferoffset:Int):Bool
+	inline function drawBGPixel(bufferOffset:Int):Bool
 	{
 		//background drawing
-		//loopyX picks bits
+		//xScroll picks bits
 		var isBG:Bool;
-		if (!Util.getbit(ppuregs[1], 1) && (bufferoffset & 0xff) < 8)
+		if (!bgClip && (bufferOffset & 0xff) < 8)
 		{
 			//left hand of screen clipping
 			//(needs to be marked as BG and not cause a sprite hit)
-			bitmap[bufferoffset] = pal[0];
+			bitmap[bufferOffset] = pal[0];
 			isBG = true;
 		}
 		else
 		{
-			var bgPix = (Util.getbitI(bgShiftRegH, -loopyX + 16) << 1)
-					+ Util.getbitI(bgShiftRegL, -loopyX + 16);
-			var bgPal = (Util.getbitI(bgAttrShiftRegH, -loopyX + 8) << 1)
-					+ Util.getbitI(bgAttrShiftRegL, -loopyX + 8);
+			var bgPix = (Util.getbitI(bgShiftRegH, -xScroll + 16) << 1)
+					+ Util.getbitI(bgShiftRegL, -xScroll + 16);
+			var bgPal = (Util.getbitI(bgAttrShiftRegH, -xScroll + 8) << 1)
+					+ Util.getbitI(bgAttrShiftRegL, -xScroll + 8);
 			isBG = (bgPix == 0);
-			bitmap[bufferoffset] = (isBG ? pal[0] : pal[(bgPal << 2) + bgPix]);
+			bitmap[bufferOffset] = (isBG ? pal[0] : pal[(bgPal << 2) + bgPix]);
 		}
 		bgShiftClock();
 		return isBG;
 	}
 
-	function bgShiftClock()
+	inline function bgShiftClock()
 	{
 		bgShiftRegH <<= 1;
 		bgShiftRegL <<= 1;
@@ -513,16 +511,13 @@ class PPU
 	/**
 	 * evaluates PPU sprites for the NEXT scanline
 	 */
-	function evalSprites()
+	inline function evalSprites()
 	{
 		sprite0here = false;
-		bgpattern = Util.getbit(ppuregs[0], 4);
-		sprpattern = Util.getbit(ppuregs[0], 3);
 		var ypos:Int = 0;
 		var offset:Int = 0;
 		var tilefetched:Int = 0;
 		found = 0;
-		var spritesize = Util.getbit(ppuregs[0], 5);
 		//primary evaluation
 		//need to emulate behavior when OAM address is set to nonzero here
 		var spritestart = 0;
@@ -531,7 +526,7 @@ class PPU
 			//for each sprite, first we cull the non-visible ones
 			ypos = oam[spritestart];
 			offset = scanline - ypos;
-			if (ypos > scanline || offset > (spritesize ? 15 : 7))
+			if (ypos > scanline || offset > (tallSprites ? 15 : 7))
 			{
 				//sprite is out of range vertically
 				spritestart += 4;
@@ -548,7 +543,7 @@ class PPU
 			{
 				//if more than 8 sprites, set overflow bit and STOP looking
 				//todo: add "no sprite limit" option back
-				ppuregs[2] |= 0x20;
+				spriteOverflow = true;
 				break; //also the real PPU does strange stuff on sprite overflow.
 			}
 			else
@@ -560,17 +555,19 @@ class PPU
 				//x value
 				spriteXlatch[found] = oam[spritestart + 3];
 				spritepals[found] = ((oamextra & 3) + 4) * 4;
-				if (Util.getbit(oamextra, 7)) {
+				if (Util.getbit(oamextra, 7))
+				{
 					//if sprite is flipped vertically, reverse the offset
-					offset = (spritesize ? 15 : 7) - offset;
+					offset = (tallSprites ? 15 : 7) - offset;
 				}
 				//now correction for the fact that 8x16 tiles are 2 separate tiles
-				if (offset > 7) {
+				if (offset > 7)
+				{
 					offset += 8;
 				}
 				//get tile address (8x16 sprites can use both pattern tbl pages but only the even tiles)
 				var tilenum = oam[spritestart + 1];
-				spriteFetch(spritesize, tilenum, offset, oamextra);
+				spriteFetch(tilenum, offset, oamextra);
 				++found;
 			}
 
@@ -578,19 +575,16 @@ class PPU
 		}
 		for (i in found ... 8)
 		{
-			//fill unused sprite registers with zeros
-			spriteshiftregL[found] = 0;
-			spriteshiftregH[found] = 0;
-			//also, we need to do 8 reads no matter how many sprites we found
-			//dummy reads are to sprite 0xff
-			spriteFetch(spritesize, 0xff, 0, 0);
+			// fill unused sprite registers with zeros
+			spriteShiftRegL[i] = 0;
+			spriteShiftRegH[i] = 0;
 		}
 	}
 
-	function spriteFetch(spritesize:Bool, tilenum:Int, offset:Int, oamextra:Int)
+	inline function spriteFetch(tilenum:Int, offset:Int, oamextra:Int)
 	{
 		var tilefetched:Int;
-		if (spritesize)
+		if (tallSprites)
 		{
 			tilefetched = ((tilenum & 1) * 0x1000)
 					+ (tilenum & 0xfe) * 16;
@@ -598,29 +592,30 @@ class PPU
 		else
 		{
 			tilefetched = tilenum * 16
-					+ ((sprpattern) ? 0x1000 : 0);
+					+ (sprPatternAddr);
 		}
 		tilefetched += offset;
 		//now load up the shift registers for said sprite
 		var hflip:Bool = Util.getbit(oamextra, 6);
 		if (!hflip)
 		{
-			spriteshiftregL[found] = Util.reverseByte(mapper.ppuRead(tilefetched));
-			spriteshiftregH[found] = Util.reverseByte(mapper.ppuRead(tilefetched + 8));
+			spriteShiftRegL[found] = Util.reverseByte(mapper.ppuRead(tilefetched));
+			spriteShiftRegH[found] = Util.reverseByte(mapper.ppuRead(tilefetched + 8));
 		}
 		else
 		{
-			spriteshiftregL[found] = mapper.ppuRead(tilefetched);
-			spriteshiftregH[found] = mapper.ppuRead(tilefetched + 8);
+			spriteShiftRegL[found] = mapper.ppuRead(tilefetched);
+			spriteShiftRegH[found] = mapper.ppuRead(tilefetched + 8);
 		}
 	}
 
 	/**
 	 * draws appropriate lines of the sprites selected by sprite evaluation
 	 */
-	function drawSprites(bufferoffset:Int, x:Int, bgflag:Bool)
+	inline function drawSprites(bufferOffset:Int, x:Int, bgflag:Bool)
 	{
-		var startdraw = Util.getbit(ppuregs[1], 2) ? 0 : 8;//sprite left 8 pixels clip
+		//sprite left 8 pixels clip
+		var startdraw = sprClip ? 0 : 8;
 		sprpxl = 0;
 		index = 7;
 		//per pixel in de line that could have a sprite
@@ -630,32 +625,32 @@ class PPU
 			off = x - spriteXlatch[y];
 			if (off >= 0 && off <= 8)
 			{
-				if ((spriteshiftregH[y] & 1) + (spriteshiftregL[y] & 1) != 0)
+				if ((spriteShiftRegH[y] & 1) + (spriteShiftRegL[y] & 1) != 0)
 				{
 					index = y;
-					sprpxl = 2 * (spriteshiftregH[y] & 1) + (spriteshiftregL[y] & 1);
+					sprpxl = 2 * (spriteShiftRegH[y] & 1) + (spriteShiftRegL[y] & 1);
 				}
-				spriteshiftregH[y] >>= 1;
-				spriteshiftregL[y] >>= 1;
+				spriteShiftRegH[y] >>= 1;
+				spriteShiftRegL[y] >>= 1;
 			}
 			--y;
 		}
-		if (sprpxl == 0 || x < startdraw || !Util.getbit(ppuregs[1], 4))
+		if (sprpxl == 0 || x < startdraw || !sprRender)
 		{
 			//no opaque sprite pixel here
-			return;
 		}
-
-		if (sprite0here && (index == 0) && !bgflag && x < 255)
+		else
 		{
-			//sprite 0 hit!
-			ppuregs[2] |= 0x40;
-			//ppuregs[1] |= 1;//debug
-		}
-		//now, FINALLY, drawing.
-		if (!spritebgflags[index] || bgflag)
-		{
-			bitmap[bufferoffset + x] = pal[spritepals[index] + sprpxl];
+			if (sprite0here && (index == 0) && !bgflag && x < 255)
+			{
+				//sprite 0 hit
+				sprite0 = true;
+			}
+			//now, FINALLY, drawing.
+			if (!spritebgflags[index] || bgflag)
+			{
+				bitmap[bufferOffset + x] = pal[spritepals[index] + sprpxl];
+			}
 		}
 	}
 
@@ -669,19 +664,28 @@ class PPU
 	 * @param tileY //y position of tile (0-29)
 	 * @return attribute table value (0-3)
 	 */
-	function getAttribute(ntstart:Int, tileX:Int, tileY:Int)
+	inline function getAttribute(ntstart:Int, tileX:Int, tileY:Int)
 	{
 		var base = mapper.ppuRead(ntstart + (tileX >> 2) + 8 * (tileY >> 2));
-		if (Util.getbit(tileY, 1)) {
-			if (Util.getbit(tileX, 1)) {
+		if (Util.getbit(tileY, 1))
+		{
+			if (Util.getbit(tileX, 1))
+			{
 				return (base >> 6) & 3;
-			} else {
+			}
+			else
+			{
 				return (base >> 4) & 3;
 			}
-		} else {
-			if (Util.getbit(tileX, 1)) {
+		}
+		else
+		{
+			if (Util.getbit(tileX, 1))
+			{
 				return (base >> 2) & 3;
-			} else {
+			}
+			else
+			{
 				return base & 3;
 			}
 		}

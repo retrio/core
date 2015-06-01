@@ -3,13 +3,18 @@ package xgame.platform.nes;
 import haxe.ds.Vector;
 
 
-class NesColors
+class Palette
 {
 	static inline var att = 0.7;
 
-	public static var colors = getColors();
+	static var _colorCache:Vector<Int> = new Vector(0x200);
+	public static inline function getColor(c:Int)
+	{
+		return _colorCache[c];
+	}
 
-	private static function getColors() {
+	static var _colors = getColors();
+	static function getColors() {
 		//just or's all the colors with opaque alpha and does the color emphasis calcs
 		//This set of colors matches current version of ntsc filter output
 		var colorarray = [
@@ -22,10 +27,6 @@ class NesColors
 			0xffffff, 0xc8eaff, 0xe1d8ff, 0xffccff, 0xffc6ff, 0xffcbfb, 0xffd7c2, 0xffe999,
 			0xf0f986, 0xd6ff90, 0xbdffaf, 0xb3ffd7, 0xb3ffff, 0xbcbcbc, 0x000000, 0x000000,
 		];
-		for (i in 0 ... colorarray.length)
-		{
-			colorarray[i] |= 0xff000000;
-		}
 
 		var colors:Vector<Vector<Int>> = new Vector(8);
 		for (i in 0 ... colors.length)
@@ -37,7 +38,7 @@ class NesColors
 			var r = r(col);
 			var b = b(col);
 			var g = g(col);
-			colors[0][j] = col;
+			colors[0][j] = compose(r, g, b);
 			//emphasize red
 			colors[1][j] = compose(r, g * att, b * att);
 			//emphasize green
@@ -48,32 +49,42 @@ class NesColors
 			colors[4][j] = compose(r * att, g * att, b);
 			//emphasize purple
 			colors[5][j] = compose(r, g * att, b);
-			//emphasize cyan?
+			//emphasize cyan
 			colors[6][j] = compose(r * att, g, b);
 			//de-emph all 3 colors
 			colors[7][j] = compose(r * att, g * att, b * att);
-
 		}
+
+		for (i in 0 ... 8)
+			for (j in 0 ... colorarray.length)
+				_colorCache[((i&7) << 6) | j] = colors[i][j];
+
 		return colors;
 	}
 
-	private static inline function r(col:Int):Int
+	static inline function r(col:Int):Int
 	{
 		return (col >> 16) & 0xff;
 	}
 
-	private static inline function g(col:Int):Int
+	static inline function g(col:Int):Int
 	{
 		return (col >> 8) & 0xff;
 	}
 
-	private static inline function b(col:Int):Int
+	static inline function b(col:Int):Int
 	{
 		return col & 0xff;
 	}
 
-	private static inline function compose(r:Float, g:Float, b:Float)
+	static inline function compose(r:Float, g:Float, b:Float)
 	{
-		return ((Std.int(r) & 0xff) << 16) + ((Std.int(g) & 0xff) << 8) + (Std.int(b) & 0xff) + 0xff000000;
+#if flash
+		// store colors as little-endian for flash.Memory
+		return (0xff) | ((Std.int(r) & 0xff) << 8) | ((Std.int(g) & 0xff) << 16) | ((Std.int(b) & 0xff) << 24);
+#else
+		// store colors as big-endian for flash.Memory
+		return (0xff000000) | ((Std.int(r) & 0xff) << 16) | ((Std.int(g) & 0xff) << 8) | ((Std.int(b) & 0xff) << 0);
+#end
 	}
 }

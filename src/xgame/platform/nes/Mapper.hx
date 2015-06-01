@@ -26,30 +26,35 @@ class Mapper
 				nt1 = ppu.t0;
 				nt2 = ppu.t1;
 				nt3 = ppu.t1;
+				//trace("h");
 
 			case V_MIRROR:
 				nt0 = ppu.t0;
 				nt1 = ppu.t1;
 				nt2 = ppu.t0;
 				nt3 = ppu.t1;
+				//trace("v");
 
 			case SS_MIRROR0:
 				nt0 = ppu.t0;
 				nt1 = ppu.t0;
 				nt2 = ppu.t0;
 				nt3 = ppu.t0;
+				//trace("ss0");
 
 			case SS_MIRROR1:
 				nt0 = ppu.t1;
 				nt1 = ppu.t1;
 				nt2 = ppu.t1;
 				nt3 = ppu.t1;
+				//trace("ss1");
 
 			case FOUR_SCREEN_MIRROR:
 				nt0 = ppu.t0;
 				nt1 = ppu.t1;
 				nt2 = ppu.t2;
 				nt3 = ppu.t3;
+				//trace("4s");
 		}
 		return mirror = m;
 	}
@@ -99,25 +104,25 @@ class Mapper
 		}
 	}
 
-	public function ppuRead(addr:Int)
+	var _readResult:Int;
+	public inline function ppuRead(addr:Int)
 	{
 		if (addr < 0x2000)
 		{
-			var result = rom.chrRom[rom.chrMap[addr >> 10] + (addr & 1023)];
-			return result == null ? 0 : result;
+			_readResult = rom.chr[rom.chrMap[addr >> 10] + (addr & 1023)];
 		}
 		else
 		{
 			switch (addr & 0xc00)
 			{
 				case 0:
-					return nt0[addr & 0x3ff];
+					_readResult = nt0[addr & 0x3ff];
 
 				case 0x400:
-					return nt1[addr & 0x3ff];
+					_readResult = nt1[addr & 0x3ff];
 
 				case 0x800:
-					return nt2[addr & 0x3ff];
+					_readResult = nt2[addr & 0x3ff];
 
 				default:
 					if (addr >= 0x3f00)
@@ -127,48 +132,52 @@ class Mapper
 						{
 							addr -= 0x10;
 						}
-						return ppu.pal[addr];
+						_readResult = ppu.pal[addr];
 					}
 					else
 					{
-						return nt3[addr & 0x3ff];
+						_readResult = nt3[addr & 0x3ff];
 					}
 			}
 		}
+		return _readResult;
 	}
 
-	public function ppuWrite(addr:Int, data:Int)
+	public inline function ppuWrite(addr:Int, data:Int)
 	{
-		addr &= 0x3fff;
-
-		switch (addr & 0xc00)
+		if (addr < 0x2000)
 		{
-			case 0x0:
-				nt0[addr & 0x3ff] = data;
+			rom.chr[rom.chrMap[addr >> 10] + (addr & 1023)] = data;
+		}
+		else
+		{
+			switch (addr & 0xc00)
+			{
+				case 0x0:
+					nt0[addr & 0x3ff] = data;
 
-			case 0x400:
-				nt1[addr & 0x3ff] = data;
+				case 0x400:
+					nt1[addr & 0x3ff] = data;
 
-			case 0x800:
-				nt2[addr & 0x3ff] = data;
+				case 0x800:
+					nt2[addr & 0x3ff] = data;
 
-			case 0xc00:
-				if (addr >= 0x3f00 && addr <= 0x3fff)
-				{
-					addr &= 0x1f;
-					if (addr >= 0x10 && ((addr & 3) == 0))
+				default:
+					if (addr >= 0x3f00 && addr < 0x4000)
 					{
-						// mirrors
-						addr -= 0x10;
+						addr &= 0x1f;
+						if (addr >= 0x10 && ((addr & 3) == 0))
+						{
+							// mirrors
+							addr -= 0x10;
+						}
+						ppu.pal[addr] = (data & 0x3f);
 					}
-					ppu.pal[addr] = (data & 0x3f);
-				}
-				else
-				{
-					nt3[addr & 0x3ff] = data;
-				}
-
-			default:
+					else
+					{
+						nt3[addr & 0x3ff] = data;
+					}
+			}
 		}
 	}
 

@@ -11,8 +11,8 @@ class ROM
 	public var mirror:MirrorMode;
 
 	public var prgRom:Vector<Int>;
-	public var chrRom:Vector<Int>;
 	public var prgRam:Vector<Int>;
+	public var chr:Vector<Int>;				// ROM or RAM
 
 	public var prgSize:Int=0;				// size of PRG ROM (# of 0x4000 blocks)
 	public var chrSize:Int=0;				// size of CHR ROM (# of 0x2000 blocks)
@@ -20,6 +20,8 @@ class ROM
 
 	public var prgMap:Vector<Int>;
 	public var chrMap:Vector<Int>;
+
+	public var chrRam:Bool = false;
 
 	var mapperNumber:Int=0;
 
@@ -40,15 +42,14 @@ class ROM
 		var f6 = file.readByte();
 		var f7 = file.readByte();
 
-		var verticalMirror = (f6 & 0x1) != 0;
-		var fourScreenMirror = (f6 & 0x8) != 0;
+		var fourScreenMirror = Util.getbit(f6, 3);
+		var verticalMirror = Util.getbit(f6, 0);
 		mirror = fourScreenMirror ? FOUR_SCREEN_MIRROR
 			: verticalMirror ? V_MIRROR : H_MIRROR;
 
 		//prgRamSize = file.readByte() * 0x2000;
 
 		prgRom = new Vector(prgSize);
-		chrRom = new Vector(chrSize);
 		prgRam = new Vector(0x2000);
 		for (i in 0 ... prgRam.length) prgRam[i] = 0;
 
@@ -61,9 +62,20 @@ class ROM
 		{
 			prgRom[i] = file.readByte();
 		}
-		for (i in 0 ... chrSize)
+		if (chrSize > 0)
 		{
-			chrRom[i] = file.readByte();
+			chr = new Vector(chrSize);
+			for (i in 0 ... chrSize)
+			{
+				chr[i] = file.readByte();
+			}
+		}
+		else
+		{
+			chrRam = true;
+			chrSize = 0x2000;
+			chr = new Vector(chrSize);
+			for (i in 0 ... chrSize) chr[i] = 0;
 		}
 
 		prgMap = new Vector(32);
@@ -85,6 +97,6 @@ class ROM
 
 	public inline function getChrByte(bank:Int, address:Int):Int
 	{
-		return chrRom[bank*0x2000 + address];
+		return chr[bank*0x2000 + address];
 	}
 }

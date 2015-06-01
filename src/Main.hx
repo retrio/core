@@ -24,17 +24,42 @@ class Main
 }
 #else
 
-class Main extends xgame.platform.nes.ui.OpenFLUI
+class Main extends xgame.platform.nes.ui.openfl.GUI
 {
 	function new()
 	{
 		var nes = new NES();
 		super(nes);
 
-		var fileName = "assets/roms/duckhunt.nes";
+		var fileName = "assets/roms/mario.nes";
 		var file = FileWrapper.read(fileName);
 
 		nes.loadGame(file);
+		var controller = new xgame.platform.nes.ui.openfl.KeyboardController();
+		nes.addController(controller);
+
+#if (cpp && profile)
+		cpp.vm.Profiler.start();
+	}
+
+	var _profiling:Bool = true;
+	var _f = 0;
+	override public function update(e:Dynamic)
+	{
+		super.update(e);
+
+		if (_profiling)
+		{
+			_f++;
+			trace(_f);
+			if (_f >= 60*15)
+			{
+				trace("DONE");
+				cpp.vm.Profiler.stop();
+				_profiling = false;
+			}
+		}
+#end
 	}
 
 	static function main()

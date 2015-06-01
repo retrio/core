@@ -9,16 +9,18 @@ class RAM
 	public var mapper:Mapper;
 	public var ppu:PPU;
 	public var apu:APU;
+	public var controllers:Vector<NESController>;
 
 	public function new() {}
 
-	public function init(mapper:Mapper, ppu:PPU, apu:APU)
+	public function init(mapper:Mapper, ppu:PPU, apu:APU, controllers:Vector<NESController>)
 	{
 		wram = new Vector(0x800);
 		for (i in 0 ... wram.length) wram.set(i, 0xFF);
 		this.mapper = mapper;
 		this.ppu = ppu;
 		this.apu = apu;
+		this.controllers = controllers;
 	}
 
 	public inline function read(addr:Int):Int
@@ -41,9 +43,8 @@ class RAM
 		else if (addr == 0x4016 || addr == 0x4017)
 		{
 			// controller read
-			//var controller = addr == 0x4016 ? null : null;
-			//controller.strobe();
-			return 0 | 0x40;
+			var port = addr - 0x4016;
+			return controllers[port] == null ? 0 : controllers[port].pop();
 		}
 		else if (addr >= 0x4000 && addr <= 4018)
 		{
@@ -60,10 +61,6 @@ class RAM
 	{
 		if (addr > 0x4018)
 		{
-			/*if (data < 127 && data >= 32)
-			{
-				trace(StringTools.hex(addr, 4) + ": " + String.fromCharCode(data));
-			}*/
 			// cartridge space
 			mapper.write(addr, data);
 		}
@@ -71,22 +68,22 @@ class RAM
 		{
 			// write to RAM (mirrored)
 			wram[addr & 0x7FF] = data;
-			//if (addr & 0x07FF < 0x0300 && addr & 0x07FF > 0x0200)
-			//	trace("WRITE", StringTools.hex(addr, 4), data);
-		}
-		else if (addr == 0x4014)
-		{
-			// sprite DMA
-			dma(data);
 		}
 		else if (addr < 0x4000)
 		{
 			// ppu, mirrored 7 bytes of io registers
 			ppu.write(addr & 7, data);
 		}
+		else if (addr == 0x4014)
+		{
+			// sprite DMA
+			dma(data);
+		}
 		else if (addr == 0x4016)
 		{
 			// controller latch
+			for (controller in controllers)
+				if (controller != null) controller.latch();
 		}
 		else if (addr >= 0x4000 && addr <= 4018)
 		{
@@ -102,9 +99,7 @@ class RAM
 		while (i < start + 256)
 		{
 			// shortcut, written to 0x2004
-			//trace(StringTools.hex(i, 4), read(i));
-			ppu.write(4, read(i));
-			++i;
+			ppu.write(4, read(i++));
 		}
 	}
 }

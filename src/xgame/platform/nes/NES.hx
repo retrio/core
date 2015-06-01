@@ -1,13 +1,15 @@
 package xgame.platform.nes;
 
+import haxe.ds.Vector;
 import haxe.io.Input;
 import xgame.FileWrapper;
+import xgame.IController;
 import xgame.platform.nes.CPU;
 import xgame.platform.nes.PPU;
 import xgame.platform.nes.ROM;
 
 
-class NES implements IEmulator<ROM>
+class NES implements IEmulator<ROM, NESController>
 {
 	// hardware components
 	public var rom:ROM;
@@ -16,6 +18,7 @@ class NES implements IEmulator<ROM>
 	public var ppu:PPU;
 	public var apu:APU;
 	public var mapper:Mapper;
+	public var controllers:Vector<NESController> = new Vector(2);
 
 	var ntsc:Bool=true;
 
@@ -32,22 +35,14 @@ class NES implements IEmulator<ROM>
 		ppu = new PPU(mapper, cpu);
 		apu = new APU();
 
-		ram.init(mapper, ppu, apu);
+		ram.init(mapper, ppu, apu, controllers);
 		mapper.init(ppu, rom, ram);
-		cpu.init(mapper, ppu, apu);
+		cpu.init(mapper);
 	}
 
 	public function frame()
 	{
-		for (i in 0 ... 262)
-		{
-			runLine(i);
-		}
-	}
-
-	public function runLine(line:Int)
-	{
-		ppu.clockLine(line);
+		ppu.runFrame();
 	}
 
 	static inline var cyclesPerSecond:Int=1790000;
@@ -57,5 +52,32 @@ class NES implements IEmulator<ROM>
 	public function saveState(slot:SaveSlot):Void {}
 	public function loadState(slot:SaveSlot):Void {}
 
-	public function reset():Void {}
+	public function reset():Void
+	{
+		cpu.reset();
+	}
+
+	public function addController(controller:NESController, ?port:Int=null):Null<Int>
+	{
+		if (port == null)
+		{
+			for (i in 0 ... controllers.length)
+			{
+				if (controllers[i] == null)
+				{
+					port = i;
+					break;
+				}
+			}
+			if (port == null) return null;
+		}
+		else
+		{
+			if (controllers[port] != null) return null;
+		}
+
+		controllers[port] = controller;
+		controller.init(this);
+		return port;
+	}
 }

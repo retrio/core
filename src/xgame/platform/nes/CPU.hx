@@ -3,8 +3,6 @@ package xgame.platform.nes;
 
 class CPU
 {
-	static inline var ppuStepSize:Float=3;
-
 	public var ram:RAM;
 	public var cycles:Int = 0;
 	public var nmi:Bool = false;
@@ -33,7 +31,7 @@ class CPU
 		this.ram = ram;
 	}
 
-	public function init(mapper:Mapper, ppu:PPU, apu:APU)
+	public function init(mapper:Mapper)
 	{
 		for (i in 0 ... 0x07FF)
 		{
@@ -710,10 +708,9 @@ class CPU
 
 	function doNmi()
 	{
-		//trace("NMI");
 		pushStack(pc >> 8); // high bit 1st
 		pushStack((pc) & 0xFF);// check that this pushes right address
-		pushStack(statusFlag & 0x10);
+		pushStack(statusFlag);
 		pc = read(0xFFFA) | (read(0xFFFB) << 8);
 		cycles += 7;
 		id = true;
@@ -721,22 +718,20 @@ class CPU
 
 	function doInterrupt()
 	{
-		//trace("INT");
 		pushStack(pc >> 8); // high bit 1st
 		pushStack((pc) & 0xFF);// check that this pushes right address
-		pushStack(statusFlag & 0x10);
+		pushStack(statusFlag);
 		pc = read(0xFFFE) | (read(0xFFFF) << 8);
 		id = true;
 	}
 
 	function breakInterrupt()
 	{
-		//trace("BRK");
 		//same as interrupt but BRK flag is turned on
 		read(pc++); //dummy fetch
 		pushStack(pc >> 8); // high bit 1st
 		pushStack(pc & 0xFF);// check that this pushes right address
-		pushStack(statusFlag & 0x10);
+		pushStack(statusFlag | 0x20);
 		pc = ram.read(0xFFFE) | (read(0xFFFF)  << 8);
 		id = true;
 	}
