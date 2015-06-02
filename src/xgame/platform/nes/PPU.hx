@@ -66,10 +66,11 @@ class PPU
 	var div:Int = 2;
 	var frameCount:Int = 0;
 	var tileAddr:Int = 0;
-	var nextAttr:Int = 0;
-	var linelowbits:Int = 0;
-	var linehighbits:Int = 0;
-	var penultimateattr:Int = 0;
+	var tileL:Int = 0;
+	var tileH:Int = 0;
+	var attr:Int = 0;
+	var attrH:Int = 0;
+	var attrL:Int = 0;
 
 	var off:Int = 0;
 	var index:Int = 0;
@@ -108,7 +109,7 @@ class PPU
 		for (i in 0 ... (262*341))
 		{
 			clock();
-			if (++cycles > 341)
+			if (++cycles > 340)
 			{
 				cycles = 0;
 				++scanline;
@@ -127,34 +128,29 @@ class PPU
 				&& ((cycles >= 1 && cycles <= 256)
 				|| (cycles >= 321 && cycles <= 336)))
 			{
-				//fetch background tiles, load shift registers
+				// fetch background tiles, load shift registers
 				bgFetch();
 			}
 			else if (cycles == 257 && enabled)
 			{
-				//horizontal bits of vramAddr = vramAddrTemp
+				// horizontal bits of vramAddr = vramAddrTemp
 				vramAddr &= ~0x41f;
 				vramAddr |= vramAddrTemp & 0x41f;
 			}
 			else if (cycles > 257 && cycles <= 341)
 			{
-				//clear the oam address from pxls 257-341 continuously
+				// clear the oam address from pxls 257-341 continuously
 				oamAddr = 0;
 			}
 			if ((cycles == 340) && enabled)
 			{
-				//read the same nametable byte twice
-				//this signals the MMC5 to increment the scanline counter
+				// read the same nametable byte twice
+				// this signals the MMC5 to increment the scanline counter
 				fetchNTByte();
 				fetchNTByte();
 			}
 			if (cycles == 260 && enabled)
 			{
-				//evaluate sprites for NEXT scanline (as long as either background or sprites are enabled)
-				//this does in fact happen on scanline 261 but it doesn't do anything useful
-				//it's cycle 260 because that's when the first important sprite byte is read
-				//actually sprite overflow should be set by sprite eval somewhat before
-				//so this needs to be split into 2 parts, the eval and the data fetches
 				evalSprites();
 			}
 			if (scanline == 261)
@@ -166,14 +162,12 @@ class PPU
 				}
 				else if (cycles >= 280 && cycles <= 304 && enabled)
 				{
-					//vramAddr = (all of)vramAddrTemp for each of these cycles
 					vramAddr = vramAddrTemp;
 				}
 			}
 		}
 		else if (scanline == 241 && cycles == 1)
 		{
-			//handle vblank on / off
 			vblank = true;
 		}
 		if (scanline < 240)
@@ -181,7 +175,7 @@ class PPU
 			if (cycles >= 1 && cycles <= 256)
 			{
 				var bufferOffset = (scanline << 8) + (cycles - 1);
-				//bg drawing
+				// bg drawing
 				if (bgRender)
 				{
 					//if background is on, draw a line of that
@@ -191,24 +185,23 @@ class PPU
 				}
 				else
 				{
-					//rendering is off, so draw either the background color OR
-					//if the PPU address points to the palette, draw that color instead.
+					// rendering is off, so draw either the background color OR
+					// if the PPU address points to the palette, draw that color instead.
 					var bgcolor = ((vramAddr > 0x3f00 && vramAddr < 0x3fff) ? mapper.ppuRead(vramAddr) : pal[0]);
 					bitmap[bufferOffset] = bgcolor;
 				}
-				//deal with the grayscale flag
+				// greyscale
 				if (greyscale)
 				{
 					bitmap[bufferOffset] &= 0x30;
 				}
-				//handle color emphasis
+				// color emphasis
 				bitmap[bufferOffset] = (bitmap[bufferOffset] & 0x3f) | emph;
 			}
 		}
-		//handle nmi
 		if (vblank && nmiEnabled)
 		{
-			//pull NMI line on when conditions are right
+			// signal NMI
 			cpu.nmi = true;
 		}
 		else
@@ -216,7 +209,7 @@ class PPU
 			cpu.nmi = false;
 		}
 
-		//clock CPU, once every 3 ppu cycles
+		// clock CPU, once every 3 PPU cycles
 		div = (div + 1) % 3;
 		if (div == 0)
 		{
@@ -284,7 +277,7 @@ class PPU
 		{
 			case 0:
 				// PPUCTRL
-				vramAddrTemp &= 0xeff;
+				vramAddrTemp &= ~0xc00;
 				vramAddrTemp += (data & 3) << 10;
 				vramInc = Util.getbit(data, 2) ? 32 : 1;
 				sprPatternAddr = Util.getbit(data, 3) ? 0x1000 : 0;
@@ -319,7 +312,7 @@ class PPU
 				if (even)
 				{
 					// update horizontal scroll
-					vramAddrTemp &= 0xffe0;
+					vramAddrTemp &= ~0x1f;
 					xScroll = data & 7;
 					vramAddrTemp += data >> 3;
 					even = false;
@@ -327,9 +320,9 @@ class PPU
 				else
 				{
 					// update vertical scroll
-					vramAddrTemp &= 0x8fff;
+					vramAddrTemp &= ~0x7000;
 					vramAddrTemp |= ((data & 7) << 12);
-					vramAddrTemp &= 0xfc1f;
+					vramAddrTemp &= ~0x3e0;
 					vramAddrTemp |= (data & 0xf8) << 2;
 					even = true;
 				}
@@ -375,30 +368,21 @@ class PPU
 
 	inline function incrementY()
 	{
-		if (vramAddr & 0x7000 != 0x7000)
+		var newfinescroll = (vramAddr & 0x7000) + 0x1000;
+		vramAddr &= ~0x7000;
+		if (newfinescroll > 0x7000)
 		{
 			//reset the fine scroll bits and increment tile address to next row
-			vramAddr += 0x1000;
+			vramAddr += 32;
 		}
 		else
 		{
-			vramAddr &= 0x8fff;
-			var y = (vramAddr & 0x03e0) >> 5;
-			if (y == 29)
-			{
-				y = 0;
-				vramAddr ^= 0x0800;
-			}
-			else if (y == 31)
-			{
-				y = 0;
-			}
-			else
-			{
-				++y;
-			}
-			//increment the fine scroll
-			vramAddr = (vramAddr & 0xfc1f) | (y << 5);
+			vramAddr += newfinescroll;
+		}
+		if (((vramAddr >> 5) & 0x1f) == 30)
+		{
+			vramAddr &= ~0x3e0;
+			vramAddr ^= 0x800;
 		}
 	}
 
@@ -409,7 +393,7 @@ class PPU
 		if ((vramAddr & 0x001F) == 31)
 		{
 			// coarse X = 0
-			vramAddr &= 0xFFE0;
+			vramAddr &= ~0x001F;
 			// switch horizontal nametable
 			vramAddr ^= 0x0400;
 		}
@@ -422,9 +406,10 @@ class PPU
 
 	inline function bgFetch()
 	{
-		//fetch tiles for background
-		bgAttrShiftRegH |= ((nextAttr >> 1) & 1);
-		bgAttrShiftRegL |= (nextAttr & 1);
+		bgShiftClock();
+
+		bgAttrShiftRegH |= attrH;
+		bgAttrShiftRegL |= attrL;
 
 		//background fetches
 		switch ((cycles - 1) & 7)
@@ -434,21 +419,24 @@ class PPU
 
 			case 3:
 				//fetch attribute
-				penultimateattr = getAttribute(((vramAddr & 0xc00) | 0x23c0),
+				attr = getAttribute(((vramAddr & 0xc00) | 0x23c0),
 								(vramAddr) & 0x1f,
 								(((vramAddr) & 0x3e0) >> 5));
 
 			case 5:
 				//fetch low bg byte
-				linelowbits = mapper.ppuRead((tileAddr) + ((vramAddr & 0x7000) >> 12));
+				tileL = mapper.ppuRead((tileAddr) + ((vramAddr & 0x7000) >> 12)) & 0xFF;
 
 			case 7:
 				//fetch high bg byte
-				linehighbits = mapper.ppuRead((tileAddr) + 8
-						+ ((vramAddr & 0x7000) >> 12));
-				bgShiftRegL |= linelowbits;
-				bgShiftRegH |= linehighbits;
-				nextAttr = penultimateattr;
+				tileH = mapper.ppuRead((tileAddr) + ((vramAddr & 0x7000) >> 12) + 8) & 0xFF;
+
+				bgShiftRegH |= tileH;
+				bgShiftRegL |= tileL;
+
+				attrH = (attr >> 1) & 1;
+				attrL = attr & 1;
+
 				if (cycles != 256)
 				{
 					incrementX();
@@ -459,11 +447,6 @@ class PPU
 				}
 
 			default: {}
-		}
-
-		if (cycles >= 321 && cycles <= 336)
-		{
-			bgShiftClock();
 		}
 	}
 
@@ -489,14 +472,13 @@ class PPU
 		}
 		else
 		{
-			var bgPix = (Util.getbitI(bgShiftRegH, -xScroll + 16) << 1)
-					+ Util.getbitI(bgShiftRegL, -xScroll + 16);
-			var bgPal = (Util.getbitI(bgAttrShiftRegH, -xScroll + 8) << 1)
-					+ Util.getbitI(bgAttrShiftRegL, -xScroll + 8);
+			var bgPix = (Util.getbitI(bgShiftRegH, 16 - xScroll) << 1)
+					+ Util.getbitI(bgShiftRegL, 16 - xScroll);
+			var bgPal = (Util.getbitI(bgAttrShiftRegH, 8 - xScroll) << 1)
+					+ Util.getbitI(bgAttrShiftRegL, 8 - xScroll);
 			isBG = (bgPix == 0);
 			bitmap[bufferOffset] = (isBG ? pal[0] : pal[(bgPal << 2) + bgPix]);
 		}
-		bgShiftClock();
 		return isBG;
 	}
 
