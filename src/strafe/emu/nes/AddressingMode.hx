@@ -1,4 +1,4 @@
-package strafe.platform.nes;
+package strafe.emu.nes;
 
 
 // http://www.obelisk.demon.co.uk/6502/addressing.html

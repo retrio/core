@@ -3,15 +3,17 @@ package strafe;
 import haxe.io.Input;
 
 
-interface IEmulator<G, C:IController>
+interface IEmulator
 {
+	// load a game and start emulation
 	public function loadGame(gameData:FileWrapper):Void;
-	public function startGame(game:G):Void;
 
-	public function saveState(slot:SaveSlot):Void;
-	public function loadState(slot:SaveSlot):Void;
-
+	// reset the currently running game
 	public function reset():Void;
 
-	public function addController(c:C, ?port:Int=null):Null<Int>;
+	// add a new controller to a specific port or the first empty port
+	public function addController(c:IController, ?port:Int=null):Null<Int>;
+
+	// called once per frame
+	public function frame(render:Bool):Void;
 }

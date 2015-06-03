@@ -1,15 +1,15 @@
-package strafe.platform.nes;
+package strafe.emu.nes;
 
 import haxe.ds.Vector;
-import haxe.io.Input;
+import haxe.io.Output;
 import strafe.FileWrapper;
 import strafe.IController;
-import strafe.platform.nes.CPU;
-import strafe.platform.nes.PPU;
-import strafe.platform.nes.ROM;
+import strafe.emu.nes.CPU;
+import strafe.emu.nes.PPU;
+import strafe.emu.nes.ROM;
 
 
-class NES implements IEmulator<ROM, NESController>
+class NES implements IEmulator implements IState
 {
 	// hardware components
 	public var rom:ROM;
@@ -19,8 +19,6 @@ class NES implements IEmulator<ROM, NESController>
 	public var apu:APU;
 	public var mapper:Mapper;
 	public var controllers:Vector<NESController> = new Vector(2);
-
-	var ntsc:Bool=true;
 
 	public function new() {}
 
@@ -41,24 +39,17 @@ class NES implements IEmulator<ROM, NESController>
 		cpu.init(mapper);
 	}
 
-	public function frame()
-	{
-		ppu.runFrame();
-	}
-
-	static inline var cyclesPerSecond:Int=1790000;
-
-	public function startGame(game:ROM):Void {}
-
-	public function saveState(slot:SaveSlot):Void {}
-	public function loadState(slot:SaveSlot):Void {}
-
 	public function reset():Void
 	{
 		cpu.reset();
 	}
 
-	public function addController(controller:NESController, ?port:Int=null):Null<Int>
+	public function frame(render:Bool)
+	{
+		ppu.runFrame(render);
+	}
+
+	public function addController(controller:IController, ?port:Int=null):Null<Int>
 	{
 		if (port == null)
 		{
@@ -77,8 +68,18 @@ class NES implements IEmulator<ROM, NESController>
 			if (controllers[port] != null) return null;
 		}
 
-		controllers[port] = controller;
+		controllers[port] = new NESController(controller);
 		controller.init(this);
+
 		return port;
+	}
+
+	public function writeState(out:Output)
+	{
+		rom.writeState(out);
+		mapper.writeState(out);
+		ram.writeState(out);
+		cpu.writeState(out);
+		ppu.writeState(out);
 	}
 }

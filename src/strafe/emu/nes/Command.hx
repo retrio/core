@@ -1,4 +1,4 @@
-package strafe.platform.nes;
+package strafe.emu.nes;
 
 
 // each interpreted command is a 16-bit int consisting of 3 parts:

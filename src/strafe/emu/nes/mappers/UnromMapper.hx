@@ -1,6 +1,6 @@
-package strafe.platform.nes.mappers;
+package strafe.emu.nes.mappers;
 
-import strafe.platform.nes.Mapper;
+import strafe.emu.nes.Mapper;
 
 
 class UnromMapper extends Mapper

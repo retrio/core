@@ -1,4 +1,4 @@
-package strafe.platform.nes;
+package strafe.emu.nes;
 
 import haxe.ds.Vector;
 

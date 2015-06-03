@@ -1,42 +1,27 @@
-package;
-
+import strafe.ui.openfl.KeyboardController;
 import strafe.FileWrapper;
-import strafe.platform.nes.NES;
+import strafe.emu.nes.NES;
+import strafe.ui.openfl.nes.NESPlugin;
+import strafe.ui.openfl.Shell;
 
 
-#if test
-class Main
-{
-	static function main()
-	{
-		var args = Sys.args();
-		var fileName = "assets/roms/nestest.nes";
-		if (args.length > 0) fileName = "assets/roms/" + args[0];
-
-		var file = FileWrapper.read(fileName);
-
-		var nes = new NES();
-		nes.loadGame(file);
-		nes.cpu.pc = 0x8000;
-
-		nes.frame();
-	}
-}
-#else
-
-class Main extends strafe.platform.nes.ui.openfl.GUI
+class Main extends strafe.ui.openfl.Shell
 {
 	function new()
 	{
-		var nes = new NES();
-		super(nes);
+		super();
 
-		var fileName = "assets/roms/megaman.nes";
+		var fileName = "assets/roms/paperboy.nes";
 		var file = FileWrapper.read(fileName);
 
-		nes.loadGame(file);
-		var controller = new strafe.platform.nes.ui.openfl.KeyboardController();
-		nes.addController(controller);
+		var controller = new strafe.ui.openfl.KeyboardController();
+
+		var plugin = new NESPlugin();
+		plugin.loadGame(file);
+		plugin.addController(controller);
+		plugin.start();
+
+		loadPlugin(plugin);
 
 #if (cpp && profile)
 		cpp.vm.Profiler.start();
@@ -67,4 +52,3 @@ class Main extends strafe.platform.nes.ui.openfl.GUI
 		var m = new Main();
 	}
 }
-#end

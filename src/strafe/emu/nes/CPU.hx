@@ -1,7 +1,7 @@
-package strafe.platform.nes;
+package strafe.emu.nes;
 
 
-class CPU
+class CPU implements IState
 {
 	public var ram:RAM;
 	public var cycles:Int = 0;
@@ -734,5 +734,10 @@ class CPU
 		pushStatus();
 		pc = ram.read(0xFFFE) | (read(0xFFFF)  << 8);
 		id = true;
+	}
+
+	public function writeState(out:haxe.io.Output)
+	{
+		// TODO
 	}
 }

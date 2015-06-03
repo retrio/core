@@ -1,4 +1,4 @@
-package strafe.platform.nes;
+package strafe.emu.nes;
 
 import haxe.ds.Vector;
 
@@ -101,5 +101,10 @@ class RAM
 			// shortcut, written to 0x2004
 			ppu.write(4, read(i++));
 		}
+	}
+
+	public function writeState(out:haxe.io.Output)
+	{
+		// TODO
 	}
 }

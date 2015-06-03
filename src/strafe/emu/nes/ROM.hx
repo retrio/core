@@ -1,11 +1,11 @@
-package strafe.platform.nes;
+package strafe.emu.nes;
 
 import haxe.ds.Vector;
 import haxe.io.Input;
 import strafe.FileWrapper;
 
 
-class ROM
+class ROM implements IState
 {
 	public var mapper:Mapper;
 	public var mirror:MirrorMode;
@@ -69,5 +69,10 @@ class ROM
 			chr = new Vector(chrSize);
 			for (i in 0 ... chrSize) chr[i] = 0;
 		}
+	}
+
+	public function writeState(out:haxe.io.Output)
+	{
+		// TODO
 	}
 }

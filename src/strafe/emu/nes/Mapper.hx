@@ -1,10 +1,10 @@
-package strafe.platform.nes;
-import strafe.platform.nes.mappers.*;
+package strafe.emu.nes;
+import strafe.emu.nes.mappers.*;
 
 import haxe.ds.Vector;
 
 
-class Mapper
+class Mapper implements IState
 {
 	public static function getMapper(mapperNumber:Int):Mapper
 	{
@@ -14,6 +14,7 @@ class Mapper
 			case 0: new NromMapper();
 			case 1: new MMC1Mapper();
 			case 2: new UnromMapper();
+			case 3: new CnromMapper();
 			default: throw ("Mapper " + mapperNumber + " is not implemented yet.");
 		}
 	}
@@ -200,4 +201,9 @@ class Mapper
 	public function onReset() {}
 	public function onCpuCycle(cycles:Int) {}
 	public function onScanline(scanline:Int) {}
+
+	public function writeState(out:haxe.io.Output)
+	{
+		// TODO
+	}
 }
