@@ -1,7 +1,7 @@
 package;
 
-import xgame.FileWrapper;
-import xgame.platform.nes.NES;
+import strafe.FileWrapper;
+import strafe.platform.nes.NES;
 
 
 #if test
@@ -24,18 +24,18 @@ class Main
 }
 #else
 
-class Main extends xgame.platform.nes.ui.openfl.GUI
+class Main extends strafe.platform.nes.ui.openfl.GUI
 {
 	function new()
 	{
 		var nes = new NES();
 		super(nes);
 
-		var fileName = "assets/roms/mario.nes";
+		var fileName = "assets/roms/megaman.nes";
 		var file = FileWrapper.read(fileName);
 
 		nes.loadGame(file);
-		var controller = new xgame.platform.nes.ui.openfl.KeyboardController();
+		var controller = new strafe.platform.nes.ui.openfl.KeyboardController();
 		nes.addController(controller);
 
 #if (cpp && profile)

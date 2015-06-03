@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <project>
-    <meta title="xgame" package="com.monsterface.xgame" version="1.0.0" company="MonsterFace Games"/>
-    <app main="Main" path="bin" file="xgame"/>
+    <meta title="strafe" package="io.strafe" version="1.0.0" company="MonsterFace Games"/>
+    <app main="Main" path="bin" file="strafe"/>
     <app path="profile-bin" if="profile"/>
     <app path="perflog-bin" if="profile"/>
     <haxeflag name="--no-inline" if="debug"/>
