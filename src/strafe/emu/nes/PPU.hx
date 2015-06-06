@@ -111,8 +111,10 @@ class PPU implements IState
 	{
 		++frameCount;
 		scanline = 0;
-		cycles = 0;
-		for (i in 0 ... (262*341))
+		var skip = (bgRender && (frameCount % 2 == 1))
+			? 1 : 0;
+		cycles = skip;
+		for (i in skip ... (262*341))
 		{
 			clock(render);
 			if (++cycles > 340)
@@ -184,9 +186,7 @@ class PPU implements IState
 				// bg drawing
 				if (bgRender)
 				{
-					//if background is on, draw a line of that
 					var isBG = drawBGPixel(bufferOffset);
-					//sprite drawing
 					drawSprites(scanline << 8, cycles - 1, isBG);
 				}
 				else
@@ -208,7 +208,7 @@ class PPU implements IState
 		if (vblank && nmiEnabled)
 		{
 			// signal NMI
-			cpu.nmi = true;
+			cpu.startNmi();
 		}
 		else
 		{
@@ -220,7 +220,7 @@ class PPU implements IState
 		if (div == 0)
 		{
 			cpu.runCycle();
-			mapper.onCpuCycle(1);
+			mapper.onCpuCycle();
 		}
 		if (cycles == 257)
 		{
@@ -234,11 +234,24 @@ class PPU implements IState
 		switch(reg)
 		{
 			case 2:
+				if (scanline == 241)
+				{
+					if (cycles < 4)
+					{
+						if (cycles == 1)
+						{
+							vblank = false;
+						}
+						cpu.suppressNmi();
+					}
+				}
+
+
 				// PPUSTATUS
 				even = true;
-				openBus = ((spriteOverflow ? 1 : 0) << 5) |
-					((sprite0 ? 1 : 0) << 6) |
-					((vblank ? 1 : 0) << 7) |
+				openBus = (spriteOverflow ? 0x20 : 0) |
+					(sprite0 ? 0x40 : 0) |
+					(vblank ? 0x80 : 0) |
 					(openBus & 0x1f);
 				vblank = false;
 
@@ -285,11 +298,11 @@ class PPU implements IState
 				// PPUCTRL
 				vramAddrTemp &= ~0xc00;
 				vramAddrTemp += (data & 3) << 10;
-				vramInc = Util.getbit(data, 2) ? 32 : 1;
+				vramInc = Util.getbit(data, 2) ? 0x20 : 1;
 				sprPatternAddr = Util.getbit(data, 3) ? 0x1000 : 0;
 				bgPatternAddr = Util.getbit(data, 4) ? 0x1000 : 0;
 				tallSprites = Util.getbit(data, 5);
-				//ppu master/slave?
+				// ppu master/slave?
 				nmiEnabled = Util.getbit(data, 7);
 
 			case 1:
@@ -348,7 +361,7 @@ class PPU implements IState
 					vramAddrTemp &= 0x7f00;
 					vramAddrTemp |= data;
 					vramAddr = vramAddrTemp;
-					//trace(StringTools.hex(vramAddr));
+					// trace(StringTools.hex(vramAddr));
 					even = true;
 				}
 
@@ -361,8 +374,8 @@ class PPU implements IState
 				}
 				else
 				{
-					//if 2007 is read during rendering PPU increments both horiz
-					//and vert counters erroneously.
+					// if 2007 is read during rendering PPU increments both horiz
+					// and vert counters erroneously.
 					if (((cycles - 1) & 7) != 7)
 					{
 						incrementX();
@@ -506,58 +519,57 @@ class PPU implements IState
 		var offset:Int = 0;
 		var tilefetched:Int = 0;
 		found = 0;
-		//primary evaluation
-		//need to emulate behavior when OAM address is set to nonzero here
+		// primary evaluation
+		// need to emulate behavior when OAM address is set to nonzero here
 		var spritestart = 0;
 		while (spritestart < 255)
 		{
-			//for each sprite, first we cull the non-visible ones
+			if (found >= 8)
+			{
+				// if more than 8 sprites, set overflow bit and STOP looking
+				// TODO: add "no sprite limit" option
+				spriteOverflow = true;
+				break; // also the real PPU does strange stuff on sprite overflow.
+			}
+
+			// for each sprite, first we cull the non-visible ones
 			ypos = oam[spritestart];
 			offset = scanline - ypos;
 			if (ypos > scanline || offset > (tallSprites ? 15 : 7))
 			{
-				//sprite is out of range vertically
+				// sprite is out of range vertically
 				spritestart += 4;
 				continue;
 			}
-			//if we're here it's a valid renderable sprite
+			// if we're here it's a valid renderable sprite
 			if (spritestart == 0)
 			{
 				sprite0here = true;
 			}
-			//actually which sprite is flagged for sprite 0 depends on the starting
-			//oam address which is, on the real thing, not necessarily zero.
-			if (found >= 8)
+			// actually which sprite is flagged for sprite 0 depends on the starting
+			// oam address which is, on the real thing, not necessarily zero.
+
+			// set up ye sprite for rendering
+			var oamextra = oam[spritestart + 2];
+			// bg flag
+			spritebgflags[found] = Util.getbit(oamextra, 5);
+			// x value
+			spriteXlatch[found] = oam[spritestart + 3];
+			spritepals[found] = ((oamextra & 3) + 4) * 4;
+			if (Util.getbit(oamextra, 7))
 			{
-				//if more than 8 sprites, set overflow bit and STOP looking
-				//todo: add "no sprite limit" option back
-				spriteOverflow = true;
-				break; //also the real PPU does strange stuff on sprite overflow.
+				// if sprite is flipped vertically, reverse the offset
+				offset = (tallSprites ? 15 : 7) - offset;
 			}
-			else
+			// now correction for the fact that 8x16 tiles are 2 separate tiles
+			if (offset > 7)
 			{
-				//set up ye sprite for rendering
-				var oamextra = oam[spritestart + 2];
-				//bg flag
-				spritebgflags[found] = Util.getbit(oamextra, 5);
-				//x value
-				spriteXlatch[found] = oam[spritestart + 3];
-				spritepals[found] = ((oamextra & 3) + 4) * 4;
-				if (Util.getbit(oamextra, 7))
-				{
-					//if sprite is flipped vertically, reverse the offset
-					offset = (tallSprites ? 15 : 7) - offset;
-				}
-				//now correction for the fact that 8x16 tiles are 2 separate tiles
-				if (offset > 7)
-				{
-					offset += 8;
-				}
-				//get tile address (8x16 sprites can use both pattern tbl pages but only the even tiles)
-				var tilenum = oam[spritestart + 1];
-				spriteFetch(tilenum, offset, oamextra);
-				++found;
+				offset += 8;
 			}
+			// get tile address (8x16 sprites can use both pattern tbl pages but only the even tiles)
+			var tilenum = oam[spritestart + 1];
+			spriteFetch(tilenum, offset, oamextra);
+			++found;
 
 			spritestart += 4;
 		}
@@ -583,7 +595,7 @@ class PPU implements IState
 					+ (sprPatternAddr);
 		}
 		tilefetched += offset;
-		//now load up the shift registers for said sprite
+		// load sprite shift registers
 		var hflip:Bool = Util.getbit(oamextra, 6);
 		if (!hflip)
 		{
@@ -606,7 +618,7 @@ class PPU implements IState
 		var startdraw = sprClip ? 0 : 8;
 		sprpxl = 0;
 		index = 7;
-		//per pixel in de line that could have a sprite
+
 		var y = found - 1;
 		while (y >= 0)
 		{
@@ -625,16 +637,15 @@ class PPU implements IState
 		}
 		if (sprpxl == 0 || x < startdraw || !sprRender)
 		{
-			//no opaque sprite pixel here
+			// no opaque sprite pixel here
 		}
 		else
 		{
 			if (sprite0here && (index == 0) && !bgflag && x < 255)
 			{
-				//sprite 0 hit
+				// sprite 0 hit
 				sprite0 = true;
 			}
-			//now, FINALLY, drawing.
 			if (!spritebgflags[index] || bgflag)
 			{
 				bitmap[bufferOffset + x] = pal[spritepals[index] + sprpxl];

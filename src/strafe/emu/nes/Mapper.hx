@@ -15,6 +15,7 @@ class Mapper implements IState
 			case 1: new MMC1Mapper();
 			case 2: new UnromMapper();
 			case 3: new CnromMapper();
+			case 7: new AoromMapper();
 			default: throw ("Mapper " + mapperNumber + " is not implemented yet.");
 		}
 	}
@@ -91,11 +92,11 @@ class Mapper implements IState
 	{
 		if (addr >= 0x8000)
 		{
-			return rom.prgRom[prgMap[((addr & 0x7fff)) >> 10] + (addr & 0x3ff)] & 0xFF;
+			return rom.prgRom[prgMap[((addr & 0x7fff)) >> 10] + (addr & 0x3ff)] & 0xff;
 		}
 		else if (addr >= 0x6000 && rom.hasPrgRam)
 		{
-			return rom.prgRam[addr & 0x1fff];
+			return rom.prgRam[addr & 0x1fff] & 0xff;
 		}
 		else return addr >> 8;
 	}
@@ -113,7 +114,7 @@ class Mapper implements IState
 	{
 		if (addr < 0x2000)
 		{
-			_readResult = rom.chr[chrMap[addr >> 10] + (addr & 1023)] & 0xFF;
+			_readResult = rom.chr[chrMap[addr >> 10] + (addr & 1023)] & 0xff;
 		}
 		else
 		{
@@ -199,7 +200,7 @@ class Mapper implements IState
 		}
 	}
 	public function onReset() {}
-	public function onCpuCycle(cycles:Int) {}
+	public function onCpuCycle() {}
 	public function onScanline(scanline:Int) {}
 
 	public function writeState(out:haxe.io.Output)

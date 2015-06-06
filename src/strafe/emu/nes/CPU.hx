@@ -9,6 +9,8 @@ class CPU implements IState
 	public var pc:Int = 0x8000;	// program counter
 	public var dma:Int = 0;
 
+	public var interrupt:Int = 0;
+
 	var nmiQueued:Bool = false;
 	var prevNmi:Bool = false;
 	var sp:Int = 0xFD;			// stack pointer
@@ -24,6 +26,9 @@ class CPU implements IState
 	var of:Bool = false;		// overflow
 	var nf:Bool = false;		// negative
 
+	var interruptDelay:Bool = false;
+	var prevIntFlag:Bool = false;
+
 	var ticks:Int = 0;
 
 	public function new(ram:RAM)
@@ -35,31 +40,41 @@ class CPU implements IState
 	{
 		for (i in 0 ... 0x800)
 		{
-			write(i, 0xFF);
+			write(i, 0xff);
 		}
 
-		write(0x0008, 0xF7);
-		write(0x0009, 0xEF);
-		write(0x000A, 0xDF);
-		write(0x000F, 0xBF);
+		write(0x0008, 0xf7);
+		write(0x0009, 0xef);
+		write(0x000A, 0xdf);
+		write(0x000F, 0xbf);
 
 		for (i in 0x4000 ...  0x4010)
 		{
-			ram.write(i, 0);
+			write(i, 0);
 		}
 
 		write(0x4015, 0);
 		write(0x4017, 0);
 
-		pc = (read(0xFFFD) << 8) | read(0xFFFC);
+		pc = (read(0xfffd) << 8) | read(0xfffc);
 	}
 
 	public function reset()
 	{
-		pc = (read(0xFFFD) << 8) | read(0xFFFC);
+		pc = (read(0xfffd) << 8) | read(0xfffc);
 		write(0x4015, 0);
 		write(0x4017, read(0x4017));
 		id = true;
+	}
+
+	public inline function startNmi()
+	{
+		nmi = true;
+	}
+
+	public inline function suppressNmi()
+	{
+		nmiQueued = false;
 	}
 
 	/**
@@ -88,6 +103,26 @@ class CPU implements IState
 			nmiQueued = true;
 		}
 		prevNmi = nmi;
+
+		if (interrupt > 0)
+		{
+			if (!id && !interruptDelay)
+			{
+				doInterrupt();
+				cycles += 7;
+				return;
+			}
+			else if (interruptDelay)
+			{
+				interruptDelay = false;
+				if (!prevIntFlag)
+				{
+					doInterrupt();
+					cycles += 7;
+					return;
+				}
+			}
+		}
 
 		var byte:Int = read(pc);
 		var op:Command = Command.decodeByte(byte);
@@ -160,6 +195,7 @@ class CPU implements IState
 				write(ad, y);
 
 			case SEI, CLI:	  // set/clear interrupt disable
+				delayInterrupt();
 				id = code == OpCode.SEI;
 
 			case SED, CLD:	  // set/clear decimal mode
@@ -195,7 +231,7 @@ class CPU implements IState
 
 				var tmp = compare_to - v;
 				if (tmp < 0)
-					tmp += 0xFF + 1;
+					tmp += 0xff + 1;
 
 				cf = compare_to >= v;
 				zf = compare_to == v;
@@ -211,7 +247,7 @@ class CPU implements IState
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				pushStack(pc - 1 >> 8);
-				pushStack((pc - 1) & 0xFF);
+				pushStack((pc - 1) & 0xff);
 				pc = ad;
 
 			case RTS:					// return from subroutine
@@ -226,14 +262,16 @@ class CPU implements IState
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
+				//write(ad, v);
 				cf = v & 0x80 != 0;
-				value = (v << 1) & 0xFF;
+				value = (v << 1) & 0xff;
 				storeValue(mode, ad, value);
 
 			case LSR:					// logical shift right
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
+				//write(ad, v);
 				cf = v & 1 != 0;
 				value = v >> 1;
 				storeValue(mode, ad, value);
@@ -242,8 +280,9 @@ class CPU implements IState
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
+				//write(ad, v);
 				var new_cf = v & 0x80 != 0;
-				value = (v << 1) & 0xFF;
+				value = (v << 1) & 0xff;
 				value += cf ? 1 : 0;
 				cf = new_cf;
 				storeValue(mode, ad, value);
@@ -252,8 +291,9 @@ class CPU implements IState
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
+				//write(ad, v);
 				var new_cf = v & 1 != 0;
-				value = (v >> 1) & 0xFF;
+				value = (v >> 1) & 0xff;
 				value += cf ? 0x80 : 0;
 				cf = new_cf;
 				storeValue(mode, ad, value);
@@ -321,6 +361,7 @@ class CPU implements IState
 				pushStatus();
 
 			case PLP:					// pull cpu status
+				delayInterrupt();
 				popStatus();
 
 			case PLA:					// pull accumulator
@@ -329,31 +370,35 @@ class CPU implements IState
 			case INC:					// increment memory
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
-				value = (read(ad) + 1) & 0xFF;
+				value = read(ad);
+				//write(ad, value);
+				value = (value + 1) & 0xff;
 				write(ad, value);
 
 			case INX:					// increment x
 				x += 1;
-				x &= 0xFF;
+				x &= 0xff;
 				value = x;
 
 			case INY:					// increment x
 				y += 1;
-				y &= 0xFF;
+				y &= 0xff;
 				value = y;
 
 			case DEC:					// decrement memory
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
-				value = (read(ad) - 1) & 0xFF;
+				value = read(ad);
+				//write(ad, value);
+				value = (value - 1) & 0xff;
 				write(ad, value);
 
 			case DEX:					// decrement x
-				x = (x-1) & 0xFF;
+				x = (x-1) & 0xff;
 				value = x;
 
 			case DEY:					// decrement y
-				y = (y-1) & 0xFF;
+				y = (y-1) & 0xff;
 				value = y;
 
 			case TAX:					// transfer accumulator to x
@@ -400,7 +445,7 @@ class CPU implements IState
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
-				value = (v << 1) & 0xFF;
+				value = (v << 1) & 0xff;
 				value += cf ? 1 : 0;
 
 				write(ad, value);
@@ -413,7 +458,7 @@ class CPU implements IState
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
-				value = (v >> 1) & 0xFF;
+				value = (v >> 1) & 0xff;
 				value += cf ? 0x80 : 0;
 
 				write(ad, value);
@@ -426,7 +471,7 @@ class CPU implements IState
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				cf = v & 0x80 != 0;
-				v = (v << 1) & 0xFF;
+				v = (v << 1) & 0xff;
 				write(ad, v);
 				accumulator |= v;
 				value = accumulator;
@@ -445,11 +490,11 @@ class CPU implements IState
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				v = getValue(mode, ad) - 1;
-				v &= 0xFF;
+				v &= 0xff;
 				write(ad, v);
 
 				var tmp = accumulator - v;
-				if (tmp < 0) tmp += 0xFF + 1;
+				if (tmp < 0) tmp += 0xff + 1;
 
 				cf = accumulator >= v;
 				zf = accumulator == v;
@@ -458,13 +503,43 @@ class CPU implements IState
 			case ISC:					// INC then SBC
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
-				v = getValue(mode, ad);
-				v = (v+1) & 0xFF;
-				write(ad, v);
-				value = sbc(v);
+				value = (read(ad) + 1) & 0xff;
+				write(ad, value);
+				value = sbc(value);
 
 			case BRK:					// break
 				breakInterrupt();
+
+			case ALR:
+				mode = Command.getMode(op);
+				ad = getAddress(mode);
+				accumulator &= read(ad);
+				cf = accumulator & 1 != 0;
+				accumulator >>= 1;
+				accumulator &= 0x7f;
+				value = accumulator;
+
+			case ANC:
+				mode = Command.getMode(op);
+				ad = getAddress(mode);
+				accumulator &= read(ad);
+				cf = nf = accumulator & 0x80 == 0x80;
+				zf = accumulator == 0;
+
+			case ARR:
+				mode = Command.getMode(op);
+				ad = getAddress(mode);
+				accumulator = (((ram.read(ad) & accumulator) >> 1)	 | (cf ? 0x80 : 0x00));
+				zf = accumulator == 0;
+				nf = accumulator & 0x80 == 0x80;
+				cf = accumulator & 0x40 == 0x40;
+				of = accumulator & 0x20 == 0x20 != cf;
+
+			case AXS:
+				mode = Command.getMode(op);
+				ad = getAddress(mode);
+				value = x = (accumulator & x) - ram.read(ad);
+				cf = (x >= 0);
 
 			default:
 				throw "Instruction $" + StringTools.hex(byte,2) + " not implemented";
@@ -495,41 +570,41 @@ class CPU implements IState
 			case ZeroPageX, ZeroPageY:
 				address = read(pc++);
 				address += (mode==ZeroPageX) ? x : y;
-				address &= 0xFF;
+				address &= 0xff;
 
 			case Relative:
 				address = getSigned(read(pc++));
 				address += pc;
-				//address = (read(pc++) & 0xFF) + pc;
+				//address = (read(pc++) & 0xff) + pc;
 				// new page
-				if ((address & 0xFF00) != (pc & 0xFF00)) ticks += 2;
+				if ((address & 0xff00) != (pc & 0xff00)) ticks += 2;
 
 			case Indirect:
 				address = read(pc++) | (read(pc++) << 8);
 
 				var next_addr = address + 1;
-				if (next_addr & 0xFF == 0)
+				if (next_addr & 0xff == 0)
 				{
 					next_addr -= 0x0100;
 				}
 
-				address = (read(address) & 0xFF) | (read(next_addr) << 8);
+				address = (read(address) & 0xff) | (read(next_addr) << 8);
 
 			case IndirectX:
 				address = read(pc++);
 				address += x;
-				address &= 0xFF;
-				address = (read(address) & 0xFF) | (read((address+1) & 0xFF) << 8);
+				address &= 0xff;
+				address = (read(address) & 0xff) | (read((address+1) & 0xff) << 8);
 
 			case IndirectY:
 				address = read(pc++);
-				address = (read(address) & 0xFF) | (read((address+1) & 0xFF) << 8);
+				address = (read(address) & 0xff) | (read((address+1) & 0xff) << 8);
 
 				// new page
 				if (ticks == 5 && address>>8 != (address+y)>>8) ticks += 1;
 
 				address += y;
-				address &= 0xFFFF;
+				address &= 0xffff;
 
 			case Absolute,
 				 AbsoluteX,
@@ -552,7 +627,7 @@ class CPU implements IState
 					address += y;
 				}
 
-				address &= 0xFFFF;
+				address &= 0xffff;
 
 			case Accumulator:
 				// not important; will use the value of the accumulator
@@ -567,16 +642,16 @@ class CPU implements IState
 
 	inline function getSigned(byte:Int)
 	{
-		byte &= 0xFF;
+		byte &= 0xff;
 
-		return (byte & 0x80 != 0) ? -((~(byte - 1)) & 0xFF) : byte;
+		return (byte & 0x80 != 0) ? -((~(byte - 1)) & 0xff) : byte;
 	}
 
 	inline function getValue(mode:AddressingMode, addr:Int)
 	{
 		switch(mode)
 		{
-			case AddressingMode.Immediate: return addr & 0xFF;
+			case AddressingMode.Immediate: return addr & 0xff;
 			case AddressingMode.Accumulator: return accumulator;
 			default:
 				var r = read(addr);
@@ -587,55 +662,43 @@ class CPU implements IState
 
 	inline function adc(value:Int)
 	{
-		var acc = accumulator;
-
-		accumulator += value + (cf ? 1 : 0);
-		if (accumulator > 0xFF)
-		{
-			cf = true;
-			accumulator &= 0xFF;
-		}
-		else
-		{
-			cf = false;
-		}
-
-		of = (acc < 0x80 && accumulator >= 0x80 && (value & 0x80 != 0x80));
+		var result = value + accumulator + (cf ? 1 : 0);
+		cf = (result >> 8 != 0);
+		of = (((accumulator ^ value) & 0x80) == 0)
+				&& (((accumulator ^ result) & 0x80) != 0);
+		accumulator = result & 0xff;
 
 		return accumulator;
 	}
 
 	inline function sbc(value:Int)
 	{
-		var acc = accumulator;
-
-		accumulator -= value + (cf ? 0 : 1);
-		cf = !(accumulator > 0xFF || accumulator < 0);
-
-		if (accumulator < 0) accumulator += 0xFF + 1;
-
-		of = (acc > 0x7F && accumulator < 0x7F);
+		var result = accumulator - value - (cf ? 0 : 1);
+		cf = (result >> 8 == 0);
+		of = (((accumulator ^ value) & 0x80) != 0)
+				&& (((accumulator ^ result) & 0x80) != 0);
+		accumulator = result & 0xff;
 
 		return accumulator;
 	}
 
 	inline function pushStack(value:Int)
 	{
-		write(0x100 + (sp & 0xFF), value);
+		write(0x100 + (sp & 0xff), value);
 		sp--;
-		sp &= 0xFF;
+		sp &= 0xff;
 	}
 
 	inline function popStack():Int
 	{
 		++sp;
-		sp &= 0xFF;
+		sp &= 0xff;
 		return read(0x100 + sp);
 	}
 
 	inline function pushStatus()
 	{
-		pushStack(statusFlag | 0x10);
+		pushStack(statusFlag | 0x10 | 0x20);
 	}
 
 	inline function popStatus()
@@ -662,7 +725,6 @@ class CPU implements IState
 			(zf ? 0x2 : 0) |
 			(id ? 0x4 : 0) |
 			(dm ? 0x8 : 0) |
-			(0x20) |
 			(of ? 0x40 : 0) |
 			(nf ? 0x80 : 0);
 	}
@@ -698,20 +760,20 @@ class CPU implements IState
 
 	public inline function read(addr:Int):Int
 	{
-		return ram.read(addr) & 0xFF;
+		return ram.read(addr) & 0xff;
 	}
 
 	public inline function write(addr:Int, data:Int):Void
 	{
-		ram.write(addr, data & 0xFF);
+		ram.write(addr, data & 0xff);
 	}
 
 	inline function doNmi()
 	{
 		pushStack(pc >> 8); // high bit 1st
-		pushStack((pc) & 0xFF);// check that this pushes right address
+		pushStack((pc) & 0xff);// check that this pushes right address
 		pushStack(statusFlag);
-		pc = read(0xFFFA) | (read(0xFFFB) << 8);
+		pc = read(0xfffa) | (read(0xfffb) << 8);
 		cycles += 7;
 		id = true;
 	}
@@ -719,9 +781,9 @@ class CPU implements IState
 	inline function doInterrupt()
 	{
 		pushStack(pc >> 8); // high bit 1st
-		pushStack((pc) & 0xFF);// check that this pushes right address
+		pushStack((pc) & 0xff);// check that this pushes right address
 		pushStack(statusFlag);
-		pc = read(0xFFFE) | (read(0xFFFF) << 8);
+		pc = read(0xfffe) | (read(0xffff) << 8);
 		id = true;
 	}
 
@@ -730,10 +792,16 @@ class CPU implements IState
 		//same as interrupt but BRK flag is turned on
 		read(pc++); //dummy fetch
 		pushStack(pc >> 8); // high bit 1st
-		pushStack(pc & 0xFF);// check that this pushes right address
+		pushStack(pc & 0xff);// check that this pushes right address
 		pushStatus();
-		pc = ram.read(0xFFFE) | (read(0xFFFF)  << 8);
+		pc = read(0xfffe) | (read(0xffff)  << 8);
 		id = true;
+	}
+
+	inline function delayInterrupt()
+	{
+		interruptDelay = true;
+		prevIntFlag = id;
 	}
 
 	public function writeState(out:haxe.io.Output)

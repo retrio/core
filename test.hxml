@@ -1,0 +1,7 @@
+-main Test
+
+-cp src
+-D test
+-lib format
+
+-cpp test

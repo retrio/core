@@ -55,12 +55,12 @@ class ROM implements IState
 
 		for (i in 0...8) file.readByte();
 
-		for (i in 0 ... prgSize) prgRom[i] = file.readByte();
+		for (i in 0 ... prgSize) prgRom[i] = file.readByte() & 0xff;
 
 		if (chrSize > 0)
 		{
 			chr = new Vector(chrSize);
-			for (i in 0 ... chrSize) chr[i] = file.readByte();
+			for (i in 0 ... chrSize) chr[i] = file.readByte() & 0xff;
 		}
 		else
 		{

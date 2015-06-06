@@ -24,77 +24,78 @@ class MMC1Mapper extends Mapper
 		if (addr < 0x8000 || addr > 0xffff)
 		{
 			super.write(addr, data);
-			return;
-		}
-
-		if (Util.getbit(data, 7))
-		{
-			// reset shift register
-			mmc1shift = 0;
-			mmc1latch = 0;
-			mmc1ctrl |= 0xc;
-			setBanks();
-			return;
-		}
-
-		mmc1shift = (mmc1shift >> 1) + (data & 1) * 16;
-		++mmc1latch;
-		if (mmc1latch < 5)
-		{
-			return; // no need to do anything
 		}
 		else
 		{
-			if (addr >= 0x8000 && addr <= 0x9fff)
+			if (Util.getbit(data, 7))
 			{
-				// mmc1control
-				mmc1ctrl = mmc1shift & 0x1f;
+				// reset shift register
+				mmc1shift = 0;
+				mmc1latch = 0;
+				mmc1ctrl |= 0xc;
+				setBanks();
+				return;
+			}
 
-				switch (mmc1ctrl & 3)
+			mmc1shift = (mmc1shift >> 1) + (data & 1) * 16;
+			++mmc1latch;
+			if (mmc1latch < 5)
+			{
+				return; // no need to do anything
+			}
+			else
+			{
+				if (addr >= 0x8000 && addr <= 0x9fff)
 				{
-					case 0:
-						mirror = SS_MIRROR0;
+					// mmc1control
+					mmc1ctrl = mmc1shift & 0x1f;
 
-					case 1:
-						mirror = SS_MIRROR1;
+					switch (mmc1ctrl & 3)
+					{
+						case 0:
+							mirror = SS_MIRROR0;
 
-					case 2:
-						mirror = V_MIRROR;
+						case 1:
+							mirror = SS_MIRROR1;
 
-					default:
-						mirror = H_MIRROR;
+						case 2:
+							mirror = V_MIRROR;
+
+						default:
+							mirror = H_MIRROR;
+					}
+
 				}
-
-			}
-			else if (addr >= 0xa000 && addr <= 0xbfff)
-			{
-				// mmc1chr0
-				mmc1chr0 = mmc1shift & 0x1f;
-				if (rom.prgSize > 0x40000)
+				else if (addr >= 0xa000 && addr <= 0xbfff)
 				{
-					//SOROM boards use the high bit of CHR to switch between 1st and last
-					//256k of the PRG ROM
-					mmc1chr0 &= 0xf;
-					soromlatch = Util.getbit(mmc1shift, 4);
+					// mmc1chr0
+					mmc1chr0 = mmc1shift & 0x1f;
+					if (rom.prgSize > 0x40000)
+					{
+						//SOROM boards use the high bit of CHR to switch between 1st and last
+						//256k of the PRG ROM
+						mmc1chr0 &= 0xf;
+						soromlatch = Util.getbit(mmc1shift, 4);
+					}
 				}
-			}
-			else if (addr >= 0xc000 && addr <= 0xdfff)
-			{
-				// mmc1chr1
-				mmc1chr1 = mmc1shift & 0x1f;
-				if (rom.prgSize > 0x40000)
+				else if (addr >= 0xc000 && addr <= 0xdfff)
 				{
-					mmc1chr1 &= 0xf;
+					// mmc1chr1
+					mmc1chr1 = mmc1shift & 0x1f;
+					if (rom.prgSize > 0x40000)
+					{
+						mmc1chr1 &= 0xf;
+					}
 				}
+				else if (addr >= 0xe000 && addr <= 0xffff)
+				{
+					// mmc1prg
+					mmc1prg = mmc1shift & 0xf;
+				}
+				setBanks();
+				mmc1latch = 0;
+				mmc1shift = 0;
 			}
-			else if (addr >= 0xe000 && addr <= 0xffff)
-			{
-				// mmc1prg
-				mmc1prg = mmc1shift & 0xf;
-			}
-			setBanks();
-			mmc1latch = 0;
-			mmc1shift = 0;
 		}
 	}
 
@@ -123,7 +124,7 @@ class MMC1Mapper extends Mapper
 		}
 
 		// prg bank
-		if (Util.getbit(mmc1ctrl, 3))
+		if (!Util.getbit(mmc1ctrl, 3))
 		{
 			// 32k switch
 			// ignore low bank bit
@@ -131,9 +132,8 @@ class MMC1Mapper extends Mapper
 			{
 				prgMap[i] = (0x400 * i + 0x8000 * (mmc1prg >> 1)) % rom.prgSize;
 			}
-
 		}
-		else if (Util.getbit(mmc1ctrl, 2))
+		else if (!Util.getbit(mmc1ctrl, 2))
 		{
 			// fix 1st bank, 16k switch 2nd bank
 			for (i in 0 ... 16)
@@ -154,17 +154,17 @@ class MMC1Mapper extends Mapper
 			}
 			for (i in 1 ... 17)
 			{
-				prgMap[32 - i] = (rom.prgSize - (1024 * i));
+				prgMap[32 - i] = (rom.prgSize - (0x400 * i));
 				if ((prgMap[32 - i]) > 0x40000)
 				{
 					prgMap[32 - i] -= 0x40000;
 				}
 			}
 		}
-		//if more thn 256k ROM AND SOROM latch is on
+		// if more thn 256k ROM AND SOROM latch is on
 		if (soromlatch && (rom.prgSize > 0x40000))
 		{
-			//add 256k to all of the prg bank #s
+			// add 256k to all of the prg bank #s
 			for (i in 0 ... prgMap.length)
 			{
 				prgMap[i] += 0x40000;

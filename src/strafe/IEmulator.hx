@@ -15,5 +15,5 @@ interface IEmulator
 	public function addController(c:IController, ?port:Int=null):Null<Int>;
 
 	// called once per frame
-	public function frame(render:Bool):Void;
+	public function frame(?render:Bool=true):Void;
 }

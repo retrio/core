@@ -78,6 +78,11 @@ abstract OpCode(Int) from Int to Int
 	var DCP = 0x66<<pos;	// DEC then COMP
 	var ISC = 0x67<<pos;	// INC then SBC
 
+	var ALR = 0x68<<pos;	// AND then LSR
+	var ANC = 0x69<<pos;	// AND, copy N to C
+	var ARR = 0x70<<pos;	// AND then ROR
+	var AXS = 0x71<<pos;	// set X to (acc AND X) - (value w/o borrow)
+
 	var UNKNOWN = 0x0;
 
 	public static var opCodeNames=[

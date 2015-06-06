@@ -1,6 +1,5 @@
 import strafe.ui.openfl.KeyboardController;
 import strafe.FileWrapper;
-import strafe.emu.nes.NES;
 import strafe.ui.openfl.nes.NESPlugin;
 import strafe.ui.openfl.Shell;
 
@@ -11,7 +10,7 @@ class Main extends strafe.ui.openfl.Shell
 	{
 		super();
 
-		var fileName = "assets/roms/paperboy.nes";
+		var fileName = "assets/roms/megaman.nes";
 		var file = FileWrapper.read(fileName);
 
 		var controller = new strafe.ui.openfl.KeyboardController();

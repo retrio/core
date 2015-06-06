@@ -44,7 +44,7 @@ class NES implements IEmulator implements IState
 		cpu.reset();
 	}
 
-	public function frame(render:Bool)
+	public function frame(?render:Bool=true)
 	{
 		ppu.runFrame(render);
 	}

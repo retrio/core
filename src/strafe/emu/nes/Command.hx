@@ -177,7 +177,7 @@ abstract Command(Int) from Int to Int
 			case 0xFD: { code=OpCode.SBC; mode=AddressingMode.AbsoluteX; ticks=4; }
 			case 0xFE: { code=OpCode.INC; mode=AddressingMode.AbsoluteX; ticks=7; }
 
-			// the following are unofficial OpCode
+			// the following are unofficial opcodes
 			// http://wiki.nesdev.com/w/index.php/Programming_with_unofficial_OpCode
 
 			// NOOP +
@@ -306,6 +306,17 @@ abstract Command(Int) from Int to Int
 			case 0xF7: { code=OpCode.ISC; mode=AddressingMode.ZeroPageX; ticks=6; }
 			case 0xFB: { code=OpCode.ISC; mode=AddressingMode.AbsoluteY; ticks=7; }
 			case 0xFF: { code=OpCode.ISC; mode=AddressingMode.AbsoluteX; ticks=7; }
+			// ALR
+			case 0x4B: { code=OpCode.ALR; mode=AddressingMode.Immediate; ticks=2; }
+			// ANC
+			case 0x0B: { code=OpCode.ANC; mode=AddressingMode.Immediate; ticks=2; }
+			case 0x2B: { code=OpCode.ANC; mode=AddressingMode.Immediate; ticks=2; }
+			// ARR
+			case 0x6B: { code=OpCode.ARR; mode=AddressingMode.Immediate; ticks=2; }
+			// AXS
+			case 0xCB: { code=OpCode.ANC; mode=AddressingMode.Immediate; ticks=2; }
+
+			case 0xAB: { code=OpCode.LAX; mode=AddressingMode.Immediate; ticks=2; }
 
 			default: code=OpCode.UNKNOWN;
 		}

@@ -76,6 +76,8 @@ class Shell extends Sprite
 		this.emu = e;
 		e.resize(Std.int(width), Std.int(height));
 		addChild(e);
+
+		//speed = Fast;
 	}
 
 	public function loadGame(f:FileWrapper)

@@ -32,6 +32,10 @@ class NESPlugin extends EmulatorPlugin
 	var pixels:ByteArray = new ByteArray();
 	var frameCount = 0;
 
+#if hash
+	var hashesSeen:Map<String, Bool> = new Map();
+#end
+
 	public function new()
 	{
 		super();
@@ -69,6 +73,9 @@ class NESPlugin extends EmulatorPlugin
 		var startTime = haxe.Timer.stamp();
 #end
 		nes.frame(frameCount == 0);
+#if hash
+		nes.frame(frameCount == 0);
+#end
 
 #if perflog
 		var finishTime = haxe.Timer.stamp();
@@ -95,6 +102,16 @@ class NESPlugin extends EmulatorPlugin
 #if perflog
 		finishTime = haxe.Timer.stamp();
 		trace("RENDER TIME: " + (finishTime - startTime));
+#end
+
+#if hash
+		frameSkip = 7;
+		var hash = haxe.crypto.Sha1.encode(Std.string(nes.ppu.bitmap));
+		if (!hashesSeen.exists(hash))
+		{
+			hashesSeen[hash] = true;
+			trace(hash);
+		}
 #end
 	}
 
