@@ -26,6 +26,31 @@ class Test
 					FileSystem.deleteFile("test_results/" + file);
 		}
 
+		var hashes:Map<String, String> = new Map();
+		var prevResults:Map<String, String> = new Map();
+		if (FileSystem.exists("test_results/.last"))
+		{
+			var resultsFile = File.read("test_results/.last");
+			var line:String;
+			try
+			{
+				while ((line = resultsFile.readLine()) != null)
+				{
+					var parts = line.split(":");
+					if (parts.length == 2)
+					{
+						var name = parts[0];
+						var hash = parts[1];
+						prevResults[name] = hash;
+					}
+				}
+			}
+			catch (e:haxe.io.Eof) {}
+			resultsFile.close();
+		}
+
+		var resultsFile = File.write("test_results/.last");
+
 		var successes = 0;
 		var failures:Array<String> = [];
 		var i:Int = 0;
@@ -78,6 +103,13 @@ class Test
 				++cycles;
 			}
 
+			hashes[rom] = currentHash;
+			if (prevResults.exists(rom) && prevResults[rom] != currentHash)
+			{
+				Sys.println("=> changed from last run: " + prevResults[rom]);
+			}
+			resultsFile.writeString(rom + ":" + currentHash + "\n");
+
 			if (success)
 			{
 				Sys.println("passed!");
@@ -110,7 +142,9 @@ class Test
 			}
 		}
 
-		Sys.println("*** FINISHED ***");
+		resultsFile.close();
+
+		Sys.println("\n\n*** FINISHED ***\n");
 		Sys.println("Succeeded:  " + successes);
 		Sys.println("Failed:     " + failures.length);
 		Sys.println(failures.join(' '));

@@ -161,7 +161,7 @@ class PPU implements IState
 				else
 				{
 					readBuffer = mapper.ppuRead((vramAddr & 0x3fff) - 0x1000);
-					openBus = (openBus & 0xc0) | (mapper.ppuRead(vramAddr) & 0x3f);
+					openBus = mapper.ppuRead(vramAddr);//(openBus & 0xc0) | (mapper.ppuRead(vramAddr) & 0x3f);
 				}
 				openBusDecayH = openBusDecayL = OPEN_BUS_DECAY_CYCLES;
 				if (!enabled || scanline > 240 && scanline < 261)
@@ -209,15 +209,19 @@ class PPU implements IState
 
 			case 3:
 				// OAMADDR
-				oamAddr = data;
+				oamAddr = data & 0xff;
 
 			case 4:
 				// OAMDATA
-				if (!(enabled && scanline <= 239))
+				if ((oamAddr & 3) == 2)
 				{
-					oam[oamAddr++] = data;
-					oamAddr &= 0xff;
+					oam[oamAddr++] = data & 0xe3;
 				}
+				else
+				{
+					oam[oamAddr++] = data & 0xff;
+				}
+				oamAddr &= 0xff;
 
 			case 5:
 				// PPUSCROLL
@@ -288,9 +292,14 @@ class PPU implements IState
 		while (scanline < 262)
 		{
 			if (scanline <= 241 || scanline >= 260)
+			{
 				clock();
+			}
 			else
+			{
 				yieldToCPU();
+				signalNMI();
+			}
 
 			if (++cycles > 340)
 			{
@@ -339,7 +348,7 @@ class PPU implements IState
 			}
 			if (scanline == 261)
 			{
-				if (cycles == 0)
+				if (cycles == 2)
 				{
 					// turn off vblank, sprite 0, sprite overflow flags
 					vblank = sprite0 = spriteOverflow = false;
@@ -368,8 +377,8 @@ class PPU implements IState
 				}
 				else
 				{
-					// rendering is off, so draw either the background color OR
-					// if the PPU address points to the palette, draw that color instead.
+					// rendering is off; draw either the background color or
+					// if the PPU address points to the palette, draw that color
 					var bgcolor = ((vramAddr > 0x3f00 && vramAddr < 0x3fff) ? mapper.ppuRead(vramAddr) : pal[0]);
 					bitmap[bufferOffset] = bgcolor;
 				}
@@ -382,18 +391,9 @@ class PPU implements IState
 				bitmap[bufferOffset] = (bitmap[bufferOffset] & 0x3f) | emph;
 			}
 		}
-		if (vblank && nmiEnabled)
-		{
-			// signal NMI
-			cpu.nmi = true;
-		}
-		else
-		{
-			cpu.nmi = false;
-		}
 
-		// clock CPU, once every 3 PPU cycles
 		yieldToCPU();
+		signalNMI();
 
 		// open bus value decay
 		if (openBusDecayH > 0 && --openBusDecayH == 0)
@@ -413,6 +413,11 @@ class PPU implements IState
 			cpu.runCycle();
 			mapper.onCpuCycle();
 		}
+	}
+
+	inline function signalNMI()
+	{
+		cpu.nmi = (vblank && nmiEnabled);
 	}
 
 	inline function incrementY()
@@ -474,11 +479,11 @@ class PPU implements IState
 
 			case 5:
 				//fetch low bg byte
-				tileL = mapper.ppuRead((tileAddr) + ((vramAddr & 0x7000) >> 12)) & 0xFF;
+				tileL = mapper.ppuRead((tileAddr) + ((vramAddr & 0x7000) >> 12)) & 0xff;
 
 			case 7:
 				//fetch high bg byte
-				tileH = mapper.ppuRead((tileAddr) + ((vramAddr & 0x7000) >> 12) + 8) & 0xFF;
+				tileH = mapper.ppuRead((tileAddr) + ((vramAddr & 0x7000) >> 12) + 8) & 0xff;
 
 				bgShiftRegH |= tileH;
 				bgShiftRegL |= tileL;
@@ -557,7 +562,7 @@ class PPU implements IState
 			// for each sprite, first we cull the non-visible ones
 			ypos = oam[spritestart];
 			offset = scanline - ypos;
-			if (ypos > scanline || offset > (tallSprites ? 15 : 7))
+			if (ypos > scanline || ypos > 254 || offset > (tallSprites ? 15 : 7))
 			{
 				// sprite is out of range vertically
 				spritestart += 4;

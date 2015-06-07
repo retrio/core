@@ -75,6 +75,7 @@ class CPU implements IState
 	public inline function suppressNmi()
 	{
 		nmiQueued = false;
+		if (nmi) prevNmi = true;
 	}
 
 	/**

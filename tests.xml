@@ -18,7 +18,7 @@
 	<test rom="04.flip.nes" hash="6d10b45a3cd3eeab7169861d1afce18e97c66446"/>
 	<test rom="05.left_clip.nes" hash="1873392ffd09b17b1eea7bd48e755c440dd87435"/>
 	<test rom="06.right_edge.nes" hash="9fdedaa412c5417e29a37b1aba29fe7b7851dd61"/>
-	<test rom="07.screen_bottom.nes"/>
+	<test rom="07.screen_bottom.nes" hash="7839e3c6c725111b4307e96e78e1ef1a4c9d6ee5"/>
 	<test rom="08.double_height.nes" hash="c5e43234e5962a455efc0ffa52cd6617c4f6cb71"/>
 	<test rom="09.timing_basics.nes" hash="815bee50e02ff9add353fc9578f6764bb46126b7"/>
 	<test rom="10.timing_order.nes" hash="e3ac8d527a6bcc17aabb41634337ef0af7390637"/>
@@ -42,7 +42,7 @@
 
 	<!-- sprite overflow -->
 	<test rom="1.Basics.nes" hash="130d835fd35937c309ab572eabbd8b4d233da17a"/>
-	<test rom="2.Details.nes"/>
+	<test rom="2.Details.nes" hash="dd694365ac1fd5d3c5ef31f37cebd7789c3c2cb9"/>
 	<test rom="3.Timing.nes"/>
 	<test rom="4.Obscure.nes"/>
 	<test rom="5.Emulator.nes" hash="9ebe8ea1b1f50056d1729717a2a774df95ee923d"/>

@@ -18,7 +18,7 @@ class RAM
 	public function init(mapper:Mapper, ppu:PPU, apu:APU, controllers:Vector<NESController>)
 	{
 		wram = new Vector(0x800);
-		for (i in 0 ... wram.length) wram.set(i, 0xFF);
+		for (i in 0 ... wram.length) wram.set(i, 0xff);
 		this.mapper = mapper;
 		this.ppu = ppu;
 		this.apu = apu;
@@ -30,7 +30,7 @@ class RAM
 		if (addr < 0x2000)
 		{
 			// RAM
-			return wram[addr & 0x7FF];
+			return wram[addr & 0x7ff];
 		}
 		else if (addr > 0x4018)
 		{
@@ -50,7 +50,7 @@ class RAM
 		}
 		else if (addr >= 0x4000 && addr <= 4018)
 		{
-			// APU/IO registers
+			// APU registers
 			return apu.read(addr - 0x4000);
 		}
 		else
@@ -64,7 +64,7 @@ class RAM
 		if (addr < 0x2000)
 		{
 			// write to RAM (mirrored)
-			wram[addr & 0x7FF] = data;
+			wram[addr & 0x7ff] = data;
 		}
 		else if (addr > 0x4018)
 		{

@@ -10,7 +10,7 @@ class Main extends strafe.ui.openfl.Shell
 	{
 		super();
 
-		var fileName = "assets/roms/marble.nes";
+		var fileName = "assets/roms/zelda.nes";
 		var file = FileWrapper.read(fileName);
 
 		var controller = new strafe.ui.openfl.KeyboardController();
