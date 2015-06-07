@@ -36,7 +36,8 @@ class NES implements IEmulator implements IState
 		ram.init(mapper, ppu, apu, controllers);
 		mapper.init(ppu, rom, ram);
 		mapper.onLoad();
-		cpu.init(mapper);
+		cpu.init(ppu);
+		apu.init(cpu, ram);
 	}
 
 	public function reset():Void
@@ -44,9 +45,9 @@ class NES implements IEmulator implements IState
 		cpu.reset();
 	}
 
-	public function frame(?render:Bool=true)
+	public function frame()
 	{
-		ppu.runFrame(render);
+		ppu.runFrame();
 	}
 
 	public function addController(controller:IController, ?port:Int=null):Null<Int>

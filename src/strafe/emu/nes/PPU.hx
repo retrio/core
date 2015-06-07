@@ -5,6 +5,8 @@ import haxe.ds.Vector;
 
 class PPU implements IState
 {
+	static inline var OPEN_BUS_DECAY_CYCLES = 1000000;
+
 	static var defaultPalette=[
 		0x09, 0x01, 0x00, 0x01, 0x00, 0x02, 0x02, 0x0D,
 		0x08, 0x10, 0x08, 0x24, 0x00, 0x00, 0x04, 0x2C, 0x09, 0x01, 0x34, 0x03,
@@ -13,6 +15,7 @@ class PPU implements IState
 
 	public var mapper:Mapper;
 	public var cpu:CPU;
+	public var frameCount:Int = 0;
 
 	public static inline var RESOLUTION_X=256;
 	public static inline var RESOLUTION_Y=240;
@@ -68,9 +71,10 @@ class PPU implements IState
 	var spriteXlatch:Vector<Int> = new Vector(8);
 	var spritepals:Vector<Int> = new Vector(8);
 	var openBus:Int = 0;
+	var openBusDecayH:Int = 0;
+	var openBusDecayL:Int = 0;
 	var readBuffer:Int = 0;
 	var div:Int = 2;
-	var frameCount:Int = 0;
 	var tileAddr:Int = 0;
 	var tileL:Int = 0;
 	var tileH:Int = 0;
@@ -97,141 +101,23 @@ class PPU implements IState
 
 		this.cpu = cpu;
 
-		for (i in 0 ... oam.length) oam[i] = 0xFF;
+		for (i in 0 ... oam.length) oam[i] = 0xff;
+#if neko
 		for (i in 0 ... bitmap.length) bitmap[i] = 0;
 		for (i in 0 ... t0.length) t0[i] = 0x00;
 		for (i in 0 ... t1.length) t1[i] = 0x00;
 		for (i in 0 ... t2.length) t2[i] = 0x00;
 		for (i in 0 ... t3.length) t3[i] = 0x00;
+#end
 
 		pal = Vector.fromArrayCopy(defaultPalette);
 	}
 
-	public inline function runFrame(render:Bool)
-	{
-		++frameCount;
-		scanline = 0;
-		var skip = (bgRender && (frameCount % 2 == 1))
-			? 1 : 0;
-		cycles = skip;
-		for (i in skip ... (262*341))
-		{
-			clock(render);
-			if (++cycles > 340)
-			{
-				cycles = 0;
-				++scanline;
-			}
-		}
-	}
-
-	public inline function clock(render:Bool)
-	{
-		var enabled = enabled;
-
-		if (scanline < 240 || scanline == 261)
-		{
-			// visible scanlines
-			if (enabled
-				&& ((cycles >= 1 && cycles <= 256)
-				|| (cycles >= 321 && cycles <= 336)))
-			{
-				// fetch background tiles, load shift registers
-				bgFetch();
-			}
-			else if (cycles == 257 && enabled)
-			{
-				// horizontal bits of vramAddr = vramAddrTemp
-				vramAddr &= ~0x41f;
-				vramAddr |= vramAddrTemp & 0x41f;
-			}
-			else if (cycles > 257 && cycles <= 341)
-			{
-				// clear the oam address from pxls 257-341 continuously
-				oamAddr = 0;
-			}
-			if ((cycles == 340) && enabled)
-			{
-				// read the same nametable byte twice
-				// this signals the MMC5 to increment the scanline counter
-				fetchNTByte();
-				fetchNTByte();
-			}
-			if (cycles == 260 && enabled)
-			{
-				evalSprites();
-			}
-			if (scanline == 261)
-			{
-				if (cycles == 0)
-				{
-					// turn off vblank, sprite 0, sprite overflow flags
-					vblank = sprite0 = spriteOverflow = false;
-				}
-				else if (cycles >= 280 && cycles <= 304 && enabled)
-				{
-					vramAddr = vramAddrTemp;
-				}
-			}
-		}
-		else if (scanline == 241 && cycles == 1)
-		{
-			vblank = true;
-		}
-		if (scanline < 240)
-		{
-			if (cycles >= 1 && cycles <= 256)
-			{
-				var bufferOffset = (scanline << 8) + (cycles - 1);
-				// bg drawing
-				if (bgRender)
-				{
-					var isBG = drawBGPixel(bufferOffset);
-					drawSprites(scanline << 8, cycles - 1, isBG);
-				}
-				else
-				{
-					// rendering is off, so draw either the background color OR
-					// if the PPU address points to the palette, draw that color instead.
-					var bgcolor = ((vramAddr > 0x3f00 && vramAddr < 0x3fff) ? mapper.ppuRead(vramAddr) : pal[0]);
-					bitmap[bufferOffset] = bgcolor;
-				}
-				// greyscale
-				if (greyscale)
-				{
-					bitmap[bufferOffset] &= 0x30;
-				}
-				// color emphasis
-				bitmap[bufferOffset] = (bitmap[bufferOffset] & 0x3f) | emph;
-			}
-		}
-		if (vblank && nmiEnabled)
-		{
-			// signal NMI
-			cpu.startNmi();
-		}
-		else
-		{
-			cpu.nmi = false;
-		}
-
-		// clock CPU, once every 3 PPU cycles
-		div = (div + 1) % 3;
-		if (div == 0)
-		{
-			cpu.runCycle();
-			mapper.onCpuCycle();
-		}
-		if (cycles == 257)
-		{
-			mapper.onScanline(scanline);
-		}
-	}
-
-	public inline function read(reg:Int):Int
+	public inline function read(addr:Int):Int
 	{
 		var result:Int = 0;
-		switch(reg)
+
+		switch(addr)
 		{
 			case 2:
 				if (scanline == 241)
@@ -246,18 +132,22 @@ class PPU implements IState
 					}
 				}
 
-
 				// PPUSTATUS
 				even = true;
 				openBus = (spriteOverflow ? 0x20 : 0) |
 					(sprite0 ? 0x40 : 0) |
 					(vblank ? 0x80 : 0) |
 					(openBus & 0x1f);
+				// reading PPUSTATUS doesn't refresh decay of the lower 5 bits
+				openBusDecayH = OPEN_BUS_DECAY_CYCLES;
 				vblank = false;
 
 			case 4:
 				// read from sprite ram
-				openBus = oam[oamAddr];
+				// clearing bits 2-4 will cause PPU open bus test to pass,
+				// but sprite RAM test to fail
+				openBus = oam[oamAddr];// & 0xe3;
+				openBusDecayH = openBusDecayL = OPEN_BUS_DECAY_CYCLES;
 
 			case 7:
 				// PPUDATA
@@ -271,8 +161,9 @@ class PPU implements IState
 				else
 				{
 					readBuffer = mapper.ppuRead((vramAddr & 0x3fff) - 0x1000);
-					openBus = mapper.ppuRead(vramAddr);
+					openBus = (openBus & 0xc0) | (mapper.ppuRead(vramAddr) & 0x3f);
 				}
+				openBusDecayH = openBusDecayL = OPEN_BUS_DECAY_CYCLES;
 				if (!enabled || scanline > 240 && scanline < 261)
 				{
 					vramAddr += vramInc;
@@ -285,14 +176,16 @@ class PPU implements IState
 
 			default: {}
 		}
+
 		return openBus;
 	}
 
-	public inline function write(reg:Int, data:Int)
+	public inline function write(addr:Int, data:Int)
 	{
 		openBus = data;
+		openBusDecayH = openBusDecayL = OPEN_BUS_DECAY_CYCLES;
 
-		switch(reg)
+		switch(addr)
 		{
 			case 0:
 				// PPUCTRL
@@ -382,6 +275,143 @@ class PPU implements IState
 						incrementY();
 					}
 				}
+		}
+	}
+
+	public inline function runFrame()
+	{
+		++frameCount;
+		scanline = 0;
+		var skip = (bgRender && (frameCount & 1 == 1))
+			? 1 : 0;
+		cycles = skip;
+		while (scanline < 262)
+		{
+			if (scanline <= 241 || scanline >= 260)
+				clock();
+			else
+				yieldToCPU();
+
+			if (++cycles > 340)
+			{
+				mapper.onScanline(scanline);
+				cycles = 0;
+				++scanline;
+			}
+		}
+	}
+
+	public inline function clock()
+	{
+		var enabled = enabled;
+
+		if (scanline < 240 || scanline == 261)
+		{
+			// visible scanlines
+			if (enabled
+				&& ((cycles >= 1 && cycles <= 256)
+				|| (cycles >= 321 && cycles <= 336)))
+			{
+				// fetch background tiles, load shift registers
+				bgFetch();
+			}
+			else if (cycles == 257 && enabled)
+			{
+				// horizontal bits of vramAddr = vramAddrTemp
+				vramAddr &= ~0x41f;
+				vramAddr |= vramAddrTemp & 0x41f;
+			}
+			else if (cycles > 257 && cycles <= 341)
+			{
+				// clear the oam address from pxls 257-341 continuously
+				oamAddr = 0;
+			}
+			if ((cycles == 340) && enabled)
+			{
+				// read the same nametable byte twice
+				// this signals the MMC5 to increment the scanline counter
+				fetchNTByte();
+				fetchNTByte();
+			}
+			if (cycles == 260 && enabled)
+			{
+				evalSprites();
+			}
+			if (scanline == 261)
+			{
+				if (cycles == 0)
+				{
+					// turn off vblank, sprite 0, sprite overflow flags
+					vblank = sprite0 = spriteOverflow = false;
+				}
+				else if (cycles >= 280 && cycles <= 304 && enabled)
+				{
+					vramAddr = vramAddrTemp;
+				}
+			}
+		}
+		else if (scanline == 241 && cycles == 1)
+		{
+			vblank = true;
+		}
+
+		if (scanline < 240)
+		{
+			if (cycles >= 1 && cycles <= 256)
+			{
+				var bufferOffset = (scanline << 8) + (cycles - 1);
+				// bg drawing
+				if (bgRender)
+				{
+					var isBG = drawBGPixel(bufferOffset);
+					drawSprites(scanline << 8, cycles - 1, isBG);
+				}
+				else
+				{
+					// rendering is off, so draw either the background color OR
+					// if the PPU address points to the palette, draw that color instead.
+					var bgcolor = ((vramAddr > 0x3f00 && vramAddr < 0x3fff) ? mapper.ppuRead(vramAddr) : pal[0]);
+					bitmap[bufferOffset] = bgcolor;
+				}
+				// greyscale
+				if (greyscale)
+				{
+					bitmap[bufferOffset] &= 0x30;
+				}
+				// color emphasis
+				bitmap[bufferOffset] = (bitmap[bufferOffset] & 0x3f) | emph;
+			}
+		}
+		if (vblank && nmiEnabled)
+		{
+			// signal NMI
+			cpu.nmi = true;
+		}
+		else
+		{
+			cpu.nmi = false;
+		}
+
+		// clock CPU, once every 3 PPU cycles
+		yieldToCPU();
+
+		// open bus value decay
+		if (openBusDecayH > 0 && --openBusDecayH == 0)
+		{
+			openBus &= 0x1f;
+		}
+		if (openBusDecayL > 0 && --openBusDecayL == 0)
+		{
+			openBus &= 0xe0;
+		}
+	}
+
+	inline function yieldToCPU()
+	{
+		if ((div = (div + 1) % 3) == 0)
+		{
+			cpu.runCycle();
+			mapper.onCpuCycle();
 		}
 	}
 
@@ -524,14 +554,6 @@ class PPU implements IState
 		var spritestart = 0;
 		while (spritestart < 255)
 		{
-			if (found >= 8)
-			{
-				// if more than 8 sprites, set overflow bit and STOP looking
-				// TODO: add "no sprite limit" option
-				spriteOverflow = true;
-				break; // also the real PPU does strange stuff on sprite overflow.
-			}
-
 			// for each sprite, first we cull the non-visible ones
 			ypos = oam[spritestart];
 			offset = scanline - ypos;
@@ -541,13 +563,19 @@ class PPU implements IState
 				spritestart += 4;
 				continue;
 			}
-			// if we're here it's a valid renderable sprite
+
 			if (spritestart == 0)
 			{
 				sprite0here = true;
 			}
-			// actually which sprite is flagged for sprite 0 depends on the starting
-			// oam address which is, on the real thing, not necessarily zero.
+
+			if (found >= 8)
+			{
+				// if more than 8 sprites, set overflow bit and STOP looking
+				// TODO: add "no sprite limit" option
+				spriteOverflow = true;
+				break; // also the real PPU does strange stuff on sprite overflow.
+			}
 
 			// set up ye sprite for rendering
 			var oamextra = oam[spritestart + 2];
@@ -653,16 +681,6 @@ class PPU implements IState
 		}
 	}
 
-	/**
-	 * Read the appropriate color attribute byte for the current tile. this is
-	 * fetched 2x as often as it really needs to be, the MMC5 takes advantage of
-	 * that for ExGrafix mode.
-	 *
-	 * @param ntstart //start of the current attribute table
-	 * @param tileX //x position of tile (0-31)
-	 * @param tileY //y position of tile (0-29)
-	 * @return attribute table value (0-3)
-	 */
 	inline function getAttribute(ntstart:Int, tileX:Int, tileY:Int)
 	{
 		var base = mapper.ppuRead(ntstart + (tileX >> 2) + 8 * (tileY >> 2));

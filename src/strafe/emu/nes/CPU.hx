@@ -4,7 +4,9 @@ package strafe.emu.nes;
 class CPU implements IState
 {
 	public var ram:RAM;
+	public var ppu:PPU;
 	public var cycles:Int = 0;
+	public var cycleCount:Int = 0;
 	public var nmi:Bool = false;
 	public var pc:Int = 0x8000;	// program counter
 	public var dma:Int = 0;
@@ -23,6 +25,7 @@ class CPU implements IState
 	var id:Bool = true;			// interrupt disable
 	var dm:Bool = false;		// decimal mode
 	var bc:Bool = false;		// break command
+	var uf:Bool = false;		// unused flag; for compatibility with fceux trace
 	var of:Bool = false;		// overflow
 	var nf:Bool = false;		// negative
 
@@ -36,8 +39,10 @@ class CPU implements IState
 		this.ram = ram;
 	}
 
-	public function init(mapper:Mapper)
+	public function init(ppu:PPU)
 	{
+		this.ppu = ppu;
+
 		for (i in 0 ... 0x800)
 		{
 			write(i, 0xff);
@@ -67,11 +72,6 @@ class CPU implements IState
 		id = true;
 	}
 
-	public inline function startNmi()
-	{
-		nmi = true;
-	}
-
 	public inline function suppressNmi()
 	{
 		nmiQueued = false;
@@ -83,7 +83,7 @@ class CPU implements IState
 	public function runCycle()
 	{
 		read(0x4000);
-		if (dma > 0 && --dma == 0)
+		if (ram.dmaCounter > 0 && --ram.dmaCounter == 0)
 		{
 			// account for CPU cycles from DMA
 			cycles += 513;
@@ -94,7 +94,8 @@ class CPU implements IState
 		var ad:Int, v:Int;
 		var mode:AddressingMode;
 
-		if (nmiQueued) {
+		if (nmiQueued)
+		{
 			doNmi();
 			nmiQueued = false;
 		}
@@ -130,10 +131,25 @@ class CPU implements IState
 
 		var value:Null<Int> = null;
 
-#if cpudebug
-		Sys.print(StringTools.hex(pc,4)+" "+
-			StringTools.rpad(OpCode.opCodeNames[code], " ", 6)+" "+
-			StringTools.hex(byte,2));
+#if cputrace
+		Sys.print("f" + StringTools.rpad(Std.string(ppu.frameCount), " ", 7));
+		Sys.print("c" + StringTools.rpad(Std.string(cycleCount), " ", 12));
+		Sys.print("A:" + StringTools.hex(accumulator, 2));
+		Sys.print(" X:" + StringTools.hex(x, 2));
+		Sys.print(" Y:" + StringTools.hex(y, 2));
+		Sys.print(" S:" + StringTools.hex(sp, 2));
+		Sys.print(" P:"
+			+ (nf ? "N" : "n")
+			+ (of ? "V" : "v")
+			+ (uf ? "U" : "u")
+			+ (bc ? "B" : "b")
+			+ (dm ? "D" : "d")
+			+ (id ? "I" : "i")
+			+ (zf ? "Z" : "z")
+			+ (cf ? "C" : "c")
+		);
+		Sys.print("   $" + StringTools.hex(pc, 4) + ":" + StringTools.hex(byte, 2));
+		Sys.print("        " + OpCode.opCodeNames[Std.int(code)] + " ");
 #end
 		++pc;
 		pc &= 0xffff;
@@ -175,33 +191,42 @@ class CPU implements IState
 			case STA:					// store accumulator
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
+#if cputrace
+				Sys.print(" = #$" + StringTools.hex(read(ad), 2));
+#end
+				if (mode == AbsoluteX || mode == ZeroPageY)
+					read(ad);
 				write(ad, accumulator);
 
 			case LDA:					// load accumulator
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
-				accumulator = getValue(mode, ad);
-				zf = accumulator == 0;
-				nf = accumulator & 0x80 == 0x80;
+				value = accumulator = getValue(mode, ad);
 
 			case STX:					// store x
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				write(ad, x);
+#if cputrace
+				Sys.print(" = #$" + StringTools.hex(x, 2));
+#end
 
 			case STY:					// store y
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				write(ad, y);
+#if cputrace
+				Sys.print(" = #$" + StringTools.hex(y, 2));
+#end
 
-			case SEI, CLI:	  // set/clear interrupt disable
+			case SEI, CLI:				// set/clear interrupt disable
 				delayInterrupt();
 				id = code == OpCode.SEI;
 
-			case SED, CLD:	  // set/clear decimal mode
+			case SED, CLD:				// set/clear decimal mode
 				dm = code == OpCode.SED;
 
-			case SEC, CLC:	  // set/clear carry
+			case SEC, CLC:				// set/clear carry
 				cf = code == OpCode.SEC;
 
 			case CLV:					// clear overflow
@@ -211,7 +236,7 @@ class CPU implements IState
 				mode = Command.getMode(op);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
-				zf = accumulator & v == 0;
+				zf = v & accumulator == 0;
 				of = v & 0x40 != 0;
 				nf = v & 0x80 != 0;
 
@@ -255,6 +280,7 @@ class CPU implements IState
 				pc = (popStack() | (popStack() << 8)) + 1;
 
 			case RTI:					// return from interrupt
+				read(pc++);
 				popStatus();
 				pc = popStack() | (popStack() << 8);
 
@@ -328,11 +354,15 @@ class CPU implements IState
 				}
 
 				mode = Command.getMode(op);
-				var jumpTo = getAddress(mode);
+				ad = getAddress(mode);
 				if (toCheck == checkAgainst)
 				{
 					ticks += 1;
-					pc = jumpTo;
+					pc = ad;
+				}
+				else
+				{
+					ticks = 2;
 				}
 
 			case JMP:					// jump
@@ -508,6 +538,7 @@ class CPU implements IState
 				value = sbc(value);
 
 			case BRK:					// break
+				read(pc++);
 				breakInterrupt();
 
 			case ALR:
@@ -551,11 +582,12 @@ class CPU implements IState
 			nf = value & 0x80 == 0x80;
 		}
 
-#if cpudebug
-		Sys.print(dump_machine_state() + "\n");
+#if cputrace
+		Sys.print("\n");
 #end
 
 		cycles += ticks;
+		cycleCount += ticks;
 		pc &= 0xffff;
 	}
 
@@ -564,17 +596,35 @@ class CPU implements IState
 		var address:Int;
 		switch(mode)
 		{
-			case ZeroPage, Immediate:
+			case Immediate:
 				address = read(pc++);
+#if cputrace
+				Sys.print("#$" + StringTools.hex(address, 2));
+#end
+
+			case ZeroPage:
+				address = read(pc++);// & 0xff;
+#if cputrace
+				Sys.print("$" + StringTools.hex(address, 4));
+#end
 
 			case ZeroPageX, ZeroPageY:
 				address = read(pc++);
+#if cputrace
+				Sys.print("$" + StringTools.hex(address, 4) + "," + (mode==ZeroPageX ? "X" : "Y") + " @ ");
+#end
 				address += (mode==ZeroPageX) ? x : y;
 				address &= 0xff;
+#if cputrace
+				Sys.print("$" + StringTools.hex(address, 4));
+#end
 
 			case Relative:
 				address = getSigned(read(pc++));
 				address += pc;
+#if cputrace
+				Sys.print("$" + StringTools.hex(address, 4));
+#end
 				//address = (read(pc++) & 0xff) + pc;
 				// new page
 				if ((address & 0xff00) != (pc & 0xff00)) ticks += 2;
@@ -589,22 +639,36 @@ class CPU implements IState
 				}
 
 				address = (read(address) & 0xff) | (read(next_addr) << 8);
+#if cputrace
+				Sys.print("$" + StringTools.hex(address, 4));
+#end
 
 			case IndirectX:
 				address = read(pc++);
+#if cputrace
+				Sys.print("($" + StringTools.hex(address, 4) + ",X)");
+#end
 				address += x;
 				address &= 0xff;
 				address = (read(address) & 0xff) | (read((address+1) & 0xff) << 8);
+#if cputrace
+				Sys.print(" @ $" + StringTools.hex(address, 4));
+#end
 
 			case IndirectY:
 				address = read(pc++);
+#if cputrace
+				Sys.print("($" + StringTools.hex(address, 4) + ")");
+#end
 				address = (read(address) & 0xff) | (read((address+1) & 0xff) << 8);
 
 				// new page
-				if (ticks == 5 && address>>8 != (address+y)>>8) ticks += 1;
+				if (ticks == 5 && address&0xff00 != (address+y)&0xff00) ticks += 1;
 
 				address += y;
-				address &= 0xffff;
+#if cputrace
+				Sys.print(",Y @ $" + StringTools.hex(address & 0xFFFF, 4));
+#end
 
 			case Absolute,
 				 AbsoluteX,
@@ -615,19 +679,34 @@ class CPU implements IState
 				if (mode==AddressingMode.AbsoluteX)
 				{
 					// new page
-					if (ticks==4 && (address>>8 != (address+x)>>8)) ticks += 1;
-
+					if (ticks==4 && (address&0xff00 != (address+x)&0xff00)) ticks += 1;
+#if cputrace
+					Sys.print("$" + StringTools.hex(address, 4) + ",X @ ");
+#end
 					address += x;
+#if cputrace
+					Sys.print(StringTools.hex(address & 0xFFFF, 4));
+#end
 				}
 				else if (mode==AddressingMode.AbsoluteY)
 				{
 					// new page
-					if (ticks==4 && (address>>8 != (address+y)>>8)) ticks += 1;
+					if (ticks==4 && (address&0xff00 != (address+y)&0xff00)) ticks += 1;
 
+#if cputrace
+					Sys.print("$" + StringTools.hex(address, 4) + ",Y @ ");
+#end
 					address += y;
+#if cputrace
+					Sys.print(StringTools.hex(address & 0xFFFF, 4));
+#end
 				}
-
-				address &= 0xffff;
+#if cputrace
+				else
+				{
+					Sys.print("$" + StringTools.hex(address, 4));
+				}
+#end
 
 			case Accumulator:
 				// not important; will use the value of the accumulator
@@ -637,7 +716,7 @@ class CPU implements IState
 				throw "Unknown addressing mode: " + mode;
 		}
 
-		return address;
+		return address & 0xffff;
 	}
 
 	inline function getSigned(byte:Int)
@@ -651,11 +730,20 @@ class CPU implements IState
 	{
 		switch(mode)
 		{
-			case AddressingMode.Immediate: return addr & 0xff;
-			case AddressingMode.Accumulator: return accumulator;
+			case AddressingMode.Immediate:
+				return addr & 0xff;
+
+			case AddressingMode.Accumulator:
+#if cputrace
+				Sys.print(" = #$" + StringTools.hex(accumulator, 2));
+#end
+				return accumulator;
 			default:
 				var r = read(addr);
-				//trace(StringTools.hex(addr), StringTools.hex(r));
+#if cputrace
+				Sys.print(" = #$" + StringTools.hex(r, 2));
+#end
+				read(addr+1);
 				return r;
 		}
 	}
@@ -735,43 +823,26 @@ class CPU implements IState
 		id = val & 0x4 != 0;
 		dm = val & 0x8 != 0;
 		bc = val & 0x10 != 0;
+		uf = true;
 		of = val & 0x40 != 0;
 		nf = val & 0x80 != 0;
 		return val;
 	}
 
-	inline function dump_machine_state()
-	{
-		var out = " -- ";
-		out += "AC:"+StringTools.hex(accumulator, 2)+" ";
-		out += "RX:"+StringTools.hex(x, 2)+" ";
-		out += "RY:"+StringTools.hex(y, 2)+" ";
-		out += "SP:"+StringTools.hex(sp, 2)+" ";
-		out += (if (cf) "CF" else "xx")+" ";
-		out += (if (zf) "ZF" else "xx")+" ";
-		out += (if (id) "ID" else "xx")+" ";
-		out += (if (dm) "DM" else "xx")+" ";
-		out += (if (bc) "BC" else "xx")+" ";
-		out += (if (of) "OF" else "xx")+" ";
-		out += (if (nf) "NF" else "xx");
-
-		return out;
-	}
-
 	public inline function read(addr:Int):Int
 	{
-		return ram.read(addr) & 0xff;
+		return ram.read(addr & 0xffff) & 0xff;
 	}
 
 	public inline function write(addr:Int, data:Int):Void
 	{
-		ram.write(addr, data & 0xff);
+		ram.write(addr & 0xffff, data & 0xff);
 	}
 
 	inline function doNmi()
 	{
-		pushStack(pc >> 8); // high bit 1st
-		pushStack((pc) & 0xff);// check that this pushes right address
+		pushStack(pc >> 8);
+		pushStack(pc & 0xff);
 		pushStack(statusFlag);
 		pc = read(0xfffa) | (read(0xfffb) << 8);
 		cycles += 7;
@@ -790,7 +861,6 @@ class CPU implements IState
 	inline function breakInterrupt()
 	{
 		//same as interrupt but BRK flag is turned on
-		read(pc++); //dummy fetch
 		pushStack(pc >> 8); // high bit 1st
 		pushStack(pc & 0xff);// check that this pushes right address
 		pushStatus();

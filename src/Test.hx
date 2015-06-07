@@ -8,7 +8,7 @@ import strafe.emu.nes.Palette;
 
 class Test
 {
-	static inline var framesPerCycle = 30;
+	static inline var framesPerCycle = 60;
 	static inline var maxCyclesWithoutChange = 20;
 
 	static function main()
@@ -28,9 +28,11 @@ class Test
 
 		var successes = 0;
 		var failures:Array<String> = [];
+		var i:Int = 0;
 
 		for (test in fast.nodes.test)
 		{
+			++i;
 			var rom = test.att.rom;
 			var hash = test.has.hash ? test.att.hash : null;
 
@@ -38,11 +40,14 @@ class Test
 			var f = FileWrapper.read(romDir + (StringTools.endsWith(romDir, "/") ? "" : "/") + rom);
 			nes.loadGame(f);
 
-			Sys.println(">> Running test " + rom + (hash == null ? " (NO HASH)" : "") + "...");
+			Sys.println("\n>> Running test " + rom + (hash == null ? " (NO HASH)" : "") + "...");
 			var cycles = 0;
 			var success = false;
 			var currentHash = "";
 			var lastHash = "";
+
+			var withoutChange = Math.max(maxCyclesWithoutChange,
+				test.has.frames ? (Std.parseInt(test.att.frames)/framesPerCycle) : 0);
 
 			while (cycles < maxCyclesWithoutChange)
 			{
@@ -50,7 +55,7 @@ class Test
 				{
 					try
 					{
-						nes.frame(false);
+						nes.frame();
 					}
 					catch(e:Dynamic)
 					{
@@ -83,7 +88,7 @@ class Test
 				Sys.println("FAILED!");
 				Sys.println(currentHash);
 
-				var resultImg = "test_results/" + rom + ".png";
+				var resultImg = "test_results/" + StringTools.lpad(Std.string(i), "0", 3) + "-" + rom + ".png";
 
 				var bm = nes.ppu.bitmap;
 				var bo = new haxe.io.BytesOutput();
@@ -108,6 +113,6 @@ class Test
 		Sys.println("*** FINISHED ***");
 		Sys.println("Succeeded:  " + successes);
 		Sys.println("Failed:     " + failures.length);
-		Sys.println(failures.join(', '));
+		Sys.println(failures.join(' '));
 	}
 }

@@ -11,6 +11,8 @@ class RAM
 	public var apu:APU;
 	public var controllers:Vector<NESController>;
 
+	public var dmaCounter:Int = 0;
+
 	public function new() {}
 
 	public function init(mapper:Mapper, ppu:PPU, apu:APU, controllers:Vector<NESController>)
@@ -25,15 +27,15 @@ class RAM
 
 	public inline function read(addr:Int):Int
 	{
-		if (addr > 0x4018)
-		{
-			// cartridge space
-			return mapper.read(addr);
-		}
-		else if (addr < 0x2000)
+		if (addr < 0x2000)
 		{
 			// RAM
 			return wram[addr & 0x7FF];
+		}
+		else if (addr > 0x4018)
+		{
+			// cartridge space
+			return mapper.read(addr);
 		}
 		else if (addr < 0x4000)
 		{
@@ -59,15 +61,15 @@ class RAM
 
 	public inline function write(addr:Int, data:Int)
 	{
-		if (addr > 0x4018)
-		{
-			// cartridge space
-			mapper.write(addr, data);
-		}
-		else if (addr < 0x2000)
+		if (addr < 0x2000)
 		{
 			// write to RAM (mirrored)
 			wram[addr & 0x7FF] = data;
+		}
+		else if (addr > 0x4018)
+		{
+			// cartridge space
+			mapper.write(addr, data);
 		}
 		else if (addr < 0x4000)
 		{
@@ -94,13 +96,13 @@ class RAM
 	inline function dma(data)
 	{
 		var start = (data << 8);
-		//trace("DMA:", StringTools.hex(start, 4));
 		var i = start;
 		while (i < start + 256)
 		{
 			// shortcut, written to 0x2004
 			ppu.write(4, read(i++));
 		}
+		dmaCounter = 2;
 	}
 
 	public function writeState(out:haxe.io.Output)

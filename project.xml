@@ -4,7 +4,7 @@
     <app main="Main" path="bin" file="strafe"/>
     <app path="bin-profile" if="profile"/>
     <app path="bin-perflog" if="perflog"/>
-    <app path="bin-cpudebug" if="cpudebug"/>
+    <app path="bin-cputrace" if="cputrace"/>
     <app path="bin-hash" if="hash"/>
     <haxeflag name="--no-inline" if="debug"/>
     <haxeflag name="--no-inline" if="profile"/>

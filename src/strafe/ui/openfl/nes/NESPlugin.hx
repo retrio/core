@@ -72,9 +72,9 @@ class NESPlugin extends EmulatorPlugin
 #if perflog
 		var startTime = haxe.Timer.stamp();
 #end
-		nes.frame(frameCount == 0);
+		nes.frame();
 #if hash
-		nes.frame(frameCount == 0);
+		nes.frame();
 #end
 
 #if perflog

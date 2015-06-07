@@ -168,7 +168,7 @@ class Mapper implements IState
 					nt2[addr & 0x3ff] = data;
 
 				default:
-					if (addr >= 0x3f00 && addr < 0x4000)
+					if (addr >= 0x3f00)
 					{
 						addr &= 0x1f;
 						if (addr >= 0x10 && ((addr & 3) == 0))

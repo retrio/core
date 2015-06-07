@@ -3,6 +3,13 @@
 	<test rom="official_only.nes" hash="2a54c85d223a80888d240a3fb89eda4ca010f816"/>
 	<test rom="all_instrs.nes"/>
 	<test rom="cpu_timing_test.nes" hash="7588c333f853fb47afb74e020abdcb6cf70f4cec"/>
+	<test rom="cpu_interrupts.nes"/>
+	<test rom="cpu_dummy_reads.nes"/>
+
+	<!-- branch timing -->
+	<test rom="1.Branch_Basics.nes" hash="cfeaca1e9ba0674dd3401c8540f022c35524557f"/>
+	<test rom="2.Backward_Branch.nes"/>
+	<test rom="3.Forward_Branch.nes"/>
 
 	<!-- PPU tests -->
 	<test rom="01.basics.nes" hash="18f2dbf68855acad06fcb4b08f0b875aabba6f02"/>
@@ -13,15 +20,18 @@
 	<test rom="06.right_edge.nes" hash="9fdedaa412c5417e29a37b1aba29fe7b7851dd61"/>
 	<test rom="07.screen_bottom.nes"/>
 	<test rom="08.double_height.nes" hash="c5e43234e5962a455efc0ffa52cd6617c4f6cb71"/>
-	<test rom="09.timing_basics.nes"/>
-	<test rom="10.timing_order.nes"/>
+	<test rom="09.timing_basics.nes" hash="815bee50e02ff9add353fc9578f6764bb46126b7"/>
+	<test rom="10.timing_order.nes" hash="e3ac8d527a6bcc17aabb41634337ef0af7390637"/>
 	<test rom="11.edge_timing.nes" hash="ac1528368821c3d272438850c416c8db4dfa1da8"/>
 	<test rom="palette_ram.nes" hash="78537f8abf651662b1cf7fe76d8631456f84fcad"/>
 	<test rom="power_up_palette.nes" hash="78537f8abf651662b1cf7fe76d8631456f84fcad"/>
 	<test rom="sprite_ram.nes" hash="78537f8abf651662b1cf7fe76d8631456f84fcad"/>
 	<test rom="vbl_clear_time.nes" hash="78537f8abf651662b1cf7fe76d8631456f84fcad"/>
 	<test rom="vram_access.nes" hash="78537f8abf651662b1cf7fe76d8631456f84fcad"/>
+	<test rom="ppu_open_bus.nes" hash="7ce5c59a84a49ec2a02b89287944ccb773b4f938"/>
+	<test rom="test_cpu_exec_space_ppuio.nes" hash="5f9a545682f20ac44be4fdd8c628b078f5c35e47"/>
 
+	<!-- vbl and nmi -->
 	<test rom="1.frame_basics.nes" hash="b3f87a8df5d9e62053f646125d0342fc3fdd7821"/>
 	<test rom="2.vbl_timing.nes" hash="81b5206e4ba98be044f9317c6a12e265ba51baf7"/>
 	<test rom="3.even_odd_frames.nes" hash="c2b4d26461c9bb3865d4b536458f2c788fc24b3b"/>
@@ -30,5 +40,13 @@
 	<test rom="6.nmi_disable.nes"/>
 	<test rom="7.nmi_timing.nes"/>
 
-	<!-- misc tests -->
+	<!-- sprite overflow -->
+	<test rom="1.Basics.nes" hash="130d835fd35937c309ab572eabbd8b4d233da17a"/>
+	<test rom="2.Details.nes"/>
+	<test rom="3.Timing.nes"/>
+	<test rom="4.Obscure.nes"/>
+	<test rom="5.Emulator.nes" hash="9ebe8ea1b1f50056d1729717a2a774df95ee923d"/>
+
+	<!-- apu tests -->
+	<test rom="apu_test.nes"/>
 </tests>
