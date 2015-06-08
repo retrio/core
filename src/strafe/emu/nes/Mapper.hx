@@ -1,7 +1,8 @@
 package strafe.emu.nes;
-import strafe.emu.nes.mappers.*;
 
 import haxe.ds.Vector;
+import strafe.ByteString;
+import strafe.emu.nes.mappers.*;
 
 
 class Mapper implements IState
@@ -25,10 +26,10 @@ class Mapper implements IState
 	public var ppu:PPU;
 
 	// nametable pointers
-	public var nt0:Vector<Int>;
-	public var nt1:Vector<Int>;
-	public var nt2:Vector<Int>;
-	public var nt3:Vector<Int>;
+	public var nt0:ByteString;
+	public var nt1:ByteString;
+	public var nt2:ByteString;
+	public var nt3:ByteString;
 
 	public var prgMap:Vector<Int>;
 	public var chrMap:Vector<Int>;
@@ -92,11 +93,11 @@ class Mapper implements IState
 	{
 		if (addr >= 0x8000)
 		{
-			return rom.prgRom[prgMap[((addr & 0x7fff)) >> 10] + (addr & 0x3ff)] & 0xff;
+			return rom.prgRom.get(prgMap[((addr & 0x7fff)) >> 10] + (addr & 0x3ff)) & 0xff;
 		}
 		else if (addr >= 0x6000 && rom.hasPrgRam)
 		{
-			return rom.prgRam[addr & 0x1fff] & 0xff;
+			return rom.prgRam.get(addr & 0x1fff) & 0xff;
 		}
 		else return addr >> 8;
 	}
@@ -105,7 +106,7 @@ class Mapper implements IState
 	{
 		if (addr >= 0x6000 && addr < 0x8000)
 		{
-			rom.prgRam[addr & 0x1fff] = data;
+			rom.prgRam.set(addr & 0x1fff, data);
 		}
 	}
 
@@ -114,20 +115,20 @@ class Mapper implements IState
 	{
 		if (addr < 0x2000)
 		{
-			_readResult = rom.chr[chrMap[addr >> 10] + (addr & 1023)] & 0xff;
+			_readResult = rom.chr.get(chrMap[addr >> 10] + (addr & 1023)) & 0xff;
 		}
 		else
 		{
 			switch (addr & 0xc00)
 			{
 				case 0:
-					_readResult = nt0[addr & 0x3ff];
+					_readResult = nt0.get(addr & 0x3ff);
 
 				case 0x400:
-					_readResult = nt1[addr & 0x3ff];
+					_readResult = nt1.get(addr & 0x3ff);
 
 				case 0x800:
-					_readResult = nt2[addr & 0x3ff];
+					_readResult = nt2.get(addr & 0x3ff);
 
 				default:
 					if (addr >= 0x3f00)
@@ -137,11 +138,11 @@ class Mapper implements IState
 						{
 							addr -= 0x10;
 						}
-						_readResult = ppu.pal[addr];
+						_readResult = ppu.pal.get(addr);
 					}
 					else
 					{
-						_readResult = nt3[addr & 0x3ff];
+						_readResult = nt3.get(addr & 0x3ff);
 					}
 			}
 		}
@@ -152,20 +153,20 @@ class Mapper implements IState
 	{
 		if (addr < 0x2000)
 		{
-			rom.chr[chrMap[addr >> 10] + (addr & 1023)] = data;
+			rom.chr.set(chrMap[addr >> 10] + (addr & 1023), data);
 		}
 		else
 		{
 			switch (addr & 0xc00)
 			{
 				case 0x0:
-					nt0[addr & 0x3ff] = data;
+					nt0.set(addr & 0x3ff, data);
 
 				case 0x400:
-					nt1[addr & 0x3ff] = data;
+					nt1.set(addr & 0x3ff, data);
 
 				case 0x800:
-					nt2[addr & 0x3ff] = data;
+					nt2.set(addr & 0x3ff, data);
 
 				default:
 					if (addr >= 0x3f00)
@@ -176,11 +177,11 @@ class Mapper implements IState
 							// mirrors
 							addr -= 0x10;
 						}
-						ppu.pal[addr] = (data & 0x3f);
+						ppu.pal.set(addr, data & 0x3f);
 					}
 					else
 					{
-						nt3[addr & 0x3ff] = data;
+						nt3.set(addr & 0x3ff, data);
 					}
 			}
 		}

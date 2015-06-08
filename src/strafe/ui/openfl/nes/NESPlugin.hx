@@ -93,7 +93,7 @@ class NESPlugin extends EmulatorPlugin
 		var bm = nes.ppu.bitmap;
 		for (i in 0 ... 256 * 240)
 		{
-			Memory.setI32(i*4, Palette.getColor(bm[i]));
+			Memory.setI32(i*4, Palette.getColor(bm.get(i)));
 		}
 
 		pixels.position = 0;

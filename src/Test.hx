@@ -89,7 +89,8 @@ class Test
 					}
 				}
 
-				currentHash = haxe.crypto.Sha1.encode(Std.string(nes.ppu.bitmap));
+
+				currentHash = haxe.crypto.Sha1.encode(nes.ppu.bitmap.toString());
 				if (hash != null && currentHash == hash)
 				{
 					success = true;
@@ -126,7 +127,7 @@ class Test
 				var bo = new haxe.io.BytesOutput();
 				for (i in 0 ... 256 * 240)
 				{
-					var c = Palette.getColor(bm[i]);
+					var c = Palette.getColor(bm.get(i));
 					bo.writeByte((c & 0xFF0000) >> 16);
 					bo.writeByte((c & 0xFF00) >> 8);
 					bo.writeByte((c & 0xFF));

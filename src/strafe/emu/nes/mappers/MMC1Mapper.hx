@@ -37,7 +37,7 @@ class MMC1Mapper extends Mapper
 				return;
 			}
 
-			mmc1shift = (mmc1shift >> 1) + (data & 1) * 16;
+			mmc1shift = (mmc1shift >>> 1) + (data & 1) * 16;
 			++mmc1latch;
 			if (mmc1latch < 5)
 			{
@@ -45,7 +45,7 @@ class MMC1Mapper extends Mapper
 			}
 			else
 			{
-				if (addr >= 0x8000 && addr <= 0x9fff)
+				if (addr >= 0x8000 && addr < 0xa000)
 				{
 					// mmc1control
 					mmc1ctrl = mmc1shift & 0x1f;
@@ -66,7 +66,7 @@ class MMC1Mapper extends Mapper
 					}
 
 				}
-				else if (addr >= 0xa000 && addr <= 0xbfff)
+				else if (addr >= 0xa000 && addr < 0xc000)
 				{
 					// mmc1chr0
 					mmc1chr0 = mmc1shift & 0x1f;
@@ -78,7 +78,7 @@ class MMC1Mapper extends Mapper
 						soromlatch = Util.getbit(mmc1shift, 4);
 					}
 				}
-				else if (addr >= 0xc000 && addr <= 0xdfff)
+				else if (addr >= 0xc000 && addr < 0xe000)
 				{
 					// mmc1chr1
 					mmc1chr1 = mmc1shift & 0x1f;
@@ -87,7 +87,7 @@ class MMC1Mapper extends Mapper
 						mmc1chr1 &= 0xf;
 					}
 				}
-				else if (addr >= 0xe000 && addr <= 0xffff)
+				else if (addr >= 0xe000 && addr < 0x10000)
 				{
 					// mmc1prg
 					mmc1prg = mmc1shift & 0xf;
@@ -161,6 +161,7 @@ class MMC1Mapper extends Mapper
 				}
 			}
 		}
+
 		// if more thn 256k ROM AND SOROM latch is on
 		if (soromlatch && (rom.prgSize > 0x40000))
 		{

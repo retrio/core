@@ -1,6 +1,7 @@
 package strafe.emu.nes;
 
 import haxe.ds.Vector;
+import strafe.ByteString;
 
 
 class PPU implements IState
@@ -20,18 +21,18 @@ class PPU implements IState
 	public static inline var RESOLUTION_X=256;
 	public static inline var RESOLUTION_Y=240;
 
-	public var oam:Vector<Int> = new Vector(0x100);
-	public var t0:Vector<Int> = new Vector(0x400);
-	public var t1:Vector<Int> = new Vector(0x400);
-	public var t2:Vector<Int> = new Vector(0x400);
-	public var t3:Vector<Int> = new Vector(0x400);
+	public var oam:ByteString = new ByteString(0x100);
+	public var t0:ByteString = new ByteString(0x400);
+	public var t1:ByteString = new ByteString(0x400);
+	public var t2:ByteString = new ByteString(0x400);
+	public var t3:ByteString = new ByteString(0x400);
 	public var statusReg:Int=0;
 
 	public var cycles:Int = 0;
 
-	public var pal:Vector<Int> = new Vector(32);
+	public var pal:ByteString = new ByteString(32);
 
-	public var bitmap:Vector<Int> = new Vector(240 * 256);
+	public var bitmap:ByteString = new ByteString(240 * 256);
 
 	var vramAddr:Int = 0;
 	var vramAddrTemp:Int = 0;
@@ -101,16 +102,17 @@ class PPU implements IState
 
 		this.cpu = cpu;
 
-		for (i in 0 ... oam.length) oam[i] = 0xff;
+		oam.fillWith(0xff);
+		bitmap.fillWith(0);
 #if neko
-		for (i in 0 ... bitmap.length) bitmap[i] = 0;
 		for (i in 0 ... t0.length) t0[i] = 0x00;
 		for (i in 0 ... t1.length) t1[i] = 0x00;
 		for (i in 0 ... t2.length) t2[i] = 0x00;
 		for (i in 0 ... t3.length) t3[i] = 0x00;
 #end
 
-		pal = Vector.fromArrayCopy(defaultPalette);
+		pal = new ByteString(defaultPalette.length);
+		for (i in 0 ... pal.length) pal.set(i, defaultPalette[i]);
 	}
 
 	public inline function read(addr:Int):Int
@@ -146,7 +148,7 @@ class PPU implements IState
 				// read from sprite ram
 				// clearing bits 2-4 will cause PPU open bus test to pass,
 				// but sprite RAM test to fail
-				openBus = oam[oamAddr];// & 0xe3;
+				openBus = oam.get(oamAddr);// & 0xe3;
 				openBusDecayH = openBusDecayL = OPEN_BUS_DECAY_CYCLES;
 
 			case 7:
@@ -197,6 +199,11 @@ class PPU implements IState
 				tallSprites = Util.getbit(data, 5);
 				// ppu master/slave?
 				nmiEnabled = Util.getbit(data, 7);
+				if (!nmiEnabled)
+				{
+					cpu.nmi = false;
+					cpu.suppressNmi();
+				}
 
 			case 1:
 				// PPUMASK
@@ -215,11 +222,11 @@ class PPU implements IState
 				// OAMDATA
 				if ((oamAddr & 3) == 2)
 				{
-					oam[oamAddr++] = data & 0xe3;
+					oam.set(oamAddr++, data & 0xe3);
 				}
 				else
 				{
-					oam[oamAddr++] = data & 0xff;
+					oam.set(oamAddr++, data & 0xff);
 				}
 				oamAddr &= 0xff;
 
@@ -379,16 +386,16 @@ class PPU implements IState
 				{
 					// rendering is off; draw either the background color or
 					// if the PPU address points to the palette, draw that color
-					var bgcolor = ((vramAddr > 0x3f00 && vramAddr < 0x3fff) ? mapper.ppuRead(vramAddr) : pal[0]);
-					bitmap[bufferOffset] = bgcolor;
+					var bgcolor = ((vramAddr > 0x3f00 && vramAddr < 0x3fff) ? mapper.ppuRead(vramAddr) : pal.get(0));
+					bitmap.set(bufferOffset, bgcolor);
 				}
 				// greyscale
 				if (greyscale)
 				{
-					bitmap[bufferOffset] &= 0x30;
+					bitmap.set(bufferOffset, bitmap.get(bufferOffset) & 0x30);
 				}
 				// color emphasis
-				bitmap[bufferOffset] = (bitmap[bufferOffset] & 0x3f) | emph;
+				bitmap.set(bufferOffset, (bitmap.get(bufferOffset) & 0x3f) | emph);
 			}
 		}
 
@@ -521,7 +528,7 @@ class PPU implements IState
 		{
 			//left hand of screen clipping
 			//(needs to be marked as BG and not cause a sprite hit)
-			bitmap[bufferOffset] = pal[0];
+			bitmap.set(bufferOffset, pal.get(0));
 			isBG = true;
 		}
 		else
@@ -531,7 +538,7 @@ class PPU implements IState
 			var bgPal = (Util.getbitI(bgAttrShiftRegH, 8 - xScroll) << 1)
 					+ Util.getbitI(bgAttrShiftRegL, 8 - xScroll);
 			isBG = (bgPix == 0);
-			bitmap[bufferOffset] = (isBG ? pal[0] : pal[(bgPal << 2) + bgPix]);
+			bitmap.set(bufferOffset, (isBG ? pal.get(0) : pal.get((bgPal << 2) + bgPix)));
 		}
 		return isBG;
 	}
@@ -557,10 +564,10 @@ class PPU implements IState
 		// primary evaluation
 		// need to emulate behavior when OAM address is set to nonzero here
 		var spritestart = 0;
-		while (spritestart < 255)
+		while (spritestart < 253)
 		{
 			// for each sprite, first we cull the non-visible ones
-			ypos = oam[spritestart];
+			ypos = oam.get(spritestart);
 			offset = scanline - ypos;
 			if (ypos > scanline || ypos > 254 || offset > (tallSprites ? 15 : 7))
 			{
@@ -576,18 +583,19 @@ class PPU implements IState
 
 			if (found >= 8)
 			{
-				// if more than 8 sprites, set overflow bit and STOP looking
+				// if more than 8 sprites, set overflow bit and stop looking
 				// TODO: add "no sprite limit" option
 				spriteOverflow = true;
-				break; // also the real PPU does strange stuff on sprite overflow.
+				// obscure (hardware glitch) behavior not yet implemented
+				break;
 			}
 
-			// set up ye sprite for rendering
-			var oamextra = oam[spritestart + 2];
+			// set up sprite for rendering
+			var oamextra = oam.get(spritestart + 2);
 			// bg flag
 			spritebgflags[found] = Util.getbit(oamextra, 5);
 			// x value
-			spriteXlatch[found] = oam[spritestart + 3];
+			spriteXlatch[found] = oam.get(spritestart + 3);
 			spritepals[found] = ((oamextra & 3) + 4) * 4;
 			if (Util.getbit(oamextra, 7))
 			{
@@ -600,7 +608,7 @@ class PPU implements IState
 				offset += 8;
 			}
 			// get tile address (8x16 sprites can use both pattern tbl pages but only the even tiles)
-			var tilenum = oam[spritestart + 1];
+			var tilenum = oam.get(spritestart + 1);
 			spriteFetch(tilenum, offset, oamextra);
 			++found;
 
@@ -681,7 +689,7 @@ class PPU implements IState
 			}
 			if (!spritebgflags[index] || bgflag)
 			{
-				bitmap[bufferOffset + x] = pal[spritepals[index] + sprpxl];
+				bitmap.set(bufferOffset + x, pal.get(spritepals[index] + sprpxl));
 			}
 		}
 	}

@@ -1,32 +1,43 @@
 package strafe;
 
+import haxe.io.Bytes;
 
-class FileWrapper
+
+#if sys
+typedef FileType = sys.io.FileInput;
+#else
+typedef FileType = haxe.io.BytesInput;
+#end
+
+
+abstract FileWrapper(FileType) from FileType to FileType
 {
-	var input:FileStream;
-
 	public static function read(path:String):FileWrapper
 	{
-#if openfl
-		var input = openfl.Assets.getBytes(path);
+#if sys
+		return new FileWrapper(sys.io.File.read(path, true));
 #else
-		var input = sys.io.File.read(path, true);
+		return new FileWrapper(new haxe.io.BytesInput(Bytes.ofData(openfl.Assets.getBytes(path))));
 #end
-		return new FileWrapper(input);
 	}
 
-	function new(input:FileStream)
+	function new(input:FileType)
 	{
-		this.input = input;
+		this = input;
 	}
 
-	public inline function readByte()
+	public inline function readByte():UInt
 	{
-		return input.readByte();
+		return this.readByte();
 	}
 
-	public inline function readString(length:Int)
+	public inline function readBytes(n:Int):Bytes
 	{
-		return #if openfl input.readUTFBytes(length) #else input.readString(length) #end;
+		return this.read(n);
+	}
+
+	public inline function readString(length:Int):String
+	{
+		return this.readString(length);
 	}
 }

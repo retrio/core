@@ -1,11 +1,12 @@
 package strafe.emu.nes;
 
 import haxe.ds.Vector;
+import strafe.ByteString;
 
 
 class RAM
 {
-	public var wram:Vector<Int>;
+	public var wram:ByteString = new ByteString(0x800);
 	public var mapper:Mapper;
 	public var ppu:PPU;
 	public var apu:APU;
@@ -17,8 +18,7 @@ class RAM
 
 	public function init(mapper:Mapper, ppu:PPU, apu:APU, controllers:Vector<NESController>)
 	{
-		wram = new Vector(0x800);
-		for (i in 0 ... wram.length) wram.set(i, 0xff);
+		wram.fillWith(0xff);
 		this.mapper = mapper;
 		this.ppu = ppu;
 		this.apu = apu;
@@ -30,7 +30,7 @@ class RAM
 		if (addr < 0x2000)
 		{
 			// RAM
-			return wram[addr & 0x7ff];
+			return wram.get(addr & 0x7ff);
 		}
 		else if (addr > 0x4018)
 		{
@@ -64,7 +64,7 @@ class RAM
 		if (addr < 0x2000)
 		{
 			// write to RAM (mirrored)
-			wram[addr & 0x7ff] = data;
+			wram.set(addr & 0x7ff, data);
 		}
 		else if (addr > 0x4018)
 		{
@@ -93,14 +93,14 @@ class RAM
 		}
 	}
 
-	inline function dma(data)
+	inline function dma(data:Int)
 	{
 		var start = (data << 8);
 		var i = start;
 		while (i < start + 256)
 		{
 			// shortcut, written to 0x2004
-			ppu.write(4, read(i++));
+			ppu.write(4, read((i++) & 0xffff) & 0xff);
 		}
 		dmaCounter = 2;
 	}

@@ -1,7 +1,9 @@
 package strafe.emu.nes;
 
+import haxe.io.Bytes;
 import haxe.ds.Vector;
 import haxe.io.Input;
+import strafe.ByteString;
 import strafe.FileWrapper;
 
 
@@ -10,9 +12,9 @@ class ROM implements IState
 	public var mapper:Mapper;
 	public var mirror:MirrorMode;
 
-	public var prgRom:Vector<Int>;
-	public var prgRam:Vector<Int>;
-	public var chr:Vector<Int>;				// ROM or RAM
+	public var prgRom:ByteString;
+	public var prgRam:ByteString;
+	public var chr:ByteString;				// ROM or RAM
 
 	public var prgSize:Int=0;				// size of PRG ROM (# of 0x4000 blocks)
 	public var chrSize:Int=0;				// size of CHR ROM (# of 0x2000 blocks)
@@ -46,28 +48,28 @@ class ROM implements IState
 
 		//prgRamSize = file.readByte() * 0x2000;
 
-		prgRom = new Vector(prgSize);
-		prgRam = new Vector(0x2000);
-		for (i in 0 ... prgRam.length) prgRam[i] = 0;
+		prgRom = new ByteString(prgSize);
+		prgRam = new ByteString(0x2000);
+		prgRam.fillWith(0);
 
 		mapperNumber = (f6 >> 4);// + f7 & 0xF0;
 		mapper = Mapper.getMapper(mapperNumber);
 
 		for (i in 0...8) file.readByte();
 
-		for (i in 0 ... prgSize) prgRom[i] = file.readByte() & 0xff;
+		prgRom.readFrom(new haxe.io.BytesInput(file.readBytes(prgSize)));
 
 		if (chrSize > 0)
 		{
-			chr = new Vector(chrSize);
-			for (i in 0 ... chrSize) chr[i] = file.readByte() & 0xff;
+			chr = new ByteString(chrSize);
+			chr.readFrom(file);
 		}
 		else
 		{
 			chrRam = true;
 			chrSize = 0x2000;
-			chr = new Vector(chrSize);
-			for (i in 0 ... chrSize) chr[i] = 0;
+			chr = new ByteString(chrSize);
+			chr.fillWith(0);
 		}
 	}
 
