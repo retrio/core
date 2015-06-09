@@ -148,7 +148,7 @@ class PPU implements IState
 				// read from sprite ram
 				// clearing bits 2-4 will cause PPU open bus test to pass,
 				// but sprite RAM test to fail
-				openBus = oam.get(oamAddr);// & 0xe3;
+				openBus = oam.get(oamAddr) & 0xe3;
 				openBusDecayH = openBusDecayL = OPEN_BUS_DECAY_CYCLES;
 
 			case 7:
@@ -163,7 +163,7 @@ class PPU implements IState
 				else
 				{
 					readBuffer = mapper.ppuRead((vramAddr & 0x3fff) - 0x1000);
-					openBus = mapper.ppuRead(vramAddr);//(openBus & 0xc0) | (mapper.ppuRead(vramAddr) & 0x3f);
+					openBus = (openBus & 0xc0) | (mapper.ppuRead(vramAddr) & 0x3f);
 				}
 				openBusDecayH = openBusDecayL = OPEN_BUS_DECAY_CYCLES;
 				if (!enabled || scanline > 240 && scanline < 261)
@@ -220,14 +220,7 @@ class PPU implements IState
 
 			case 4:
 				// OAMDATA
-				if ((oamAddr & 3) == 2)
-				{
-					oam.set(oamAddr++, data & 0xe3);
-				}
-				else
-				{
-					oam.set(oamAddr++, data & 0xff);
-				}
+				oam.set(oamAddr++, data);
 				oamAddr &= 0xff;
 
 			case 5:

@@ -34,7 +34,7 @@ class NES implements IEmulator implements IState
 		apu = new APU();
 
 		ram.init(mapper, ppu, apu, controllers);
-		mapper.init(ppu, rom, ram);
+		mapper.init(cpu, ppu, rom, ram);
 		mapper.onLoad();
 		cpu.init(ppu);
 		apu.init(cpu, ram);

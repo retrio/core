@@ -13,6 +13,8 @@ class MMC1Mapper extends Mapper
 	var mmc1prg:Int = 0;
 	var soromlatch:Bool = false;
 
+	var lastCycle:Int = 0;
+
 	override public function onLoad()
 	{
 		super.onLoad();
@@ -25,9 +27,14 @@ class MMC1Mapper extends Mapper
 		{
 			super.write(addr, data);
 		}
+		else if (cpu.cycleCount == lastCycle)
+		{
+			return;
+		}
 		else
 		{
-			if (Util.getbit(data, 7))
+			lastCycle = cpu.cycleCount;
+			if (data & 0x80 > 0)
 			{
 				// reset shift register
 				mmc1shift = 0;
@@ -37,8 +44,7 @@ class MMC1Mapper extends Mapper
 				return;
 			}
 
-			mmc1shift = (mmc1shift >>> 1) + (data & 1) * 16;
-			++mmc1latch;
+			mmc1shift += (data & 1) << mmc1latch++;
 			if (mmc1latch < 5)
 			{
 				return; // no need to do anything
@@ -64,7 +70,6 @@ class MMC1Mapper extends Mapper
 						default:
 							mirror = H_MIRROR;
 					}
-
 				}
 				else if (addr >= 0xa000 && addr < 0xc000)
 				{
@@ -92,6 +97,7 @@ class MMC1Mapper extends Mapper
 					// mmc1prg
 					mmc1prg = mmc1shift & 0xf;
 				}
+
 				setBanks();
 				mmc1latch = 0;
 				mmc1shift = 0;
@@ -150,7 +156,7 @@ class MMC1Mapper extends Mapper
 			// fix last bank, switch 1st bank
 			for (i in 0 ... 16)
 			{
-				prgMap[i] = (0x400 * i + 0x40000 * mmc1prg) % rom.prgSize;
+				prgMap[i] = (0x400 * i + 0x4000 * mmc1prg) % rom.prgSize;
 			}
 			for (i in 1 ... 17)
 			{

@@ -23,6 +23,7 @@ class Mapper implements IState
 
 	public var rom:ROM;
 	public var ram:RAM;
+	public var cpu:CPU;
 	public var ppu:PPU;
 
 	// nametable pointers
@@ -80,8 +81,9 @@ class Mapper implements IState
 	// this is an abstract class
 	function new() {}
 
-	public function init(ppu:PPU, rom:ROM, ram:RAM)
+	public function init(cpu:CPU, ppu:PPU, rom:ROM, ram:RAM)
 	{
+		this.cpu = cpu;
 		this.ppu = ppu;
 		this.rom = rom;
 		this.ram = ram;

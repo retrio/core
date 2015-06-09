@@ -37,7 +37,7 @@ class Test
 				while ((line = resultsFile.readLine()) != null)
 				{
 					var parts = line.split(":");
-					if (parts.length == 2)
+					if (parts.length == 3)
 					{
 						var name = parts[0];
 						var hash = parts[1];
@@ -109,7 +109,7 @@ class Test
 			{
 				Sys.println("=> changed from last run: " + prevResults[rom]);
 			}
-			resultsFile.writeString(rom + ":" + currentHash + "\n");
+			resultsFile.writeString(rom + ":" + currentHash + "\n" + ":" + (success ? "PASS" : "FAIL"));
 
 			if (success)
 			{

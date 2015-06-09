@@ -5,7 +5,7 @@ import haxe.ds.Vector;
 
 class Util
 {
-	static var _reversedBytes:Vector = getReversedBytes();
+	static var _reversedBytes:Vector<Int> = getReversedBytes();
 
 	static inline function getReversedBytes()
 	{

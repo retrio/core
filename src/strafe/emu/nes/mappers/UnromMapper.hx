@@ -27,10 +27,10 @@ class UnromMapper extends Mapper
 		else
 		{
 			bank = data & 0xf;
-			//remap PRG bank (1st bank switchable, 2nd bank mapped to LAST bank)
+			// remap switchable 1st PRG bank
 			for (i in 0 ... 16)
 			{
-				prgMap[i] = (1024 * (i + 16 * bank)) & (rom.prgSize - 1);
+				prgMap[i] = (0x400 * (i + 16 * bank)) & (rom.prgSize - 1);
 			}
 		}
 	}
