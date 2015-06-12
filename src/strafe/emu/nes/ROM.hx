@@ -16,11 +16,12 @@ class ROM implements IState
 	public var prgRam:ByteString;
 	public var chr:ByteString;				// ROM or RAM
 
-	public var prgSize:Int=0;				// size of PRG ROM (# of 0x4000 blocks)
-	public var chrSize:Int=0;				// size of CHR ROM (# of 0x2000 blocks)
-	public var hasPrgRam:Bool=true;
+	public var prgSize:Int = 0;				// size of PRG ROM (# of 0x4000 blocks)
+	public var chrSize:Int = 0;				// size of CHR ROM (# of 0x2000 blocks)
 
-	public var chrRam:Bool = false;
+	public var hasPrgRam:Bool = true;
+	public var hasChrRam:Bool = false;
+	public var saveRam:Bool = false;
 
 	var mapperNumber:Int=0;
 
@@ -46,6 +47,8 @@ class ROM implements IState
 		mirror = fourScreenMirror ? FOUR_SCREEN_MIRROR
 			: verticalMirror ? V_MIRROR : H_MIRROR;
 
+		saveRam = Util.getbit(f6, 1);
+
 		//prgRamSize = file.readByte() * 0x2000;
 
 		prgRom = new ByteString(prgSize);
@@ -66,7 +69,7 @@ class ROM implements IState
 		}
 		else
 		{
-			chrRam = true;
+			hasChrRam = true;
 			chrSize = 0x2000;
 			chr = new ByteString(chrSize);
 			chr.fillWith(0);

@@ -83,4 +83,6 @@ class NES implements IEmulator implements IState
 		cpu.writeState(out);
 		ppu.writeState(out);
 	}
+
+
 }

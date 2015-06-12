@@ -289,6 +289,7 @@ class PPU implements IState
 		var skip = (bgRender && (frameCount & 1 == 1))
 			? 1 : 0;
 		cycles = skip;
+
 		while (scanline < 262)
 		{
 			if (scanline <= 241 || scanline >= 260)

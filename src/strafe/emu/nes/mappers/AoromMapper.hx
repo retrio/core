@@ -3,6 +3,7 @@ package strafe.emu.nes.mappers;
 import strafe.emu.nes.Mapper;
 
 
+@:build(strafe.macro.Optimizer.build())
 class AoromMapper extends Mapper
 {
 	var bank:Int = 0;
@@ -27,7 +28,7 @@ class AoromMapper extends Mapper
 		else
 		{
 			//remap all 32k of PRG to 32 x bank #
-			for (i in 0 ... 32)
+			@unroll for (i in 0 ... 32)
 			{
 				prgMap[i] = (1024 * (i + (32 * (data & 15)))) & (rom.prgSize - 1);
 			}

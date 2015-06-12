@@ -127,8 +127,7 @@ class CPU implements IState
 		}
 
 		var byte:Int = read(pc);
-		var op:Command = Command.decodeByte(byte);
-		var code:OpCode = Command.getCode(op);
+		var code:OpCode = OpCode.getCode(byte);
 
 		var value:Null<Int> = null;
 
@@ -157,40 +156,40 @@ class CPU implements IState
 
 		// get base number of CPU cycles for this operation
 		// (in some circumstances, this may increase during execution)
-		ticks = Command.getTicks(op);
+		ticks = OpCode.getTicks(byte);
 
 		// execute instruction
 		switch (code)
 		{
 			case ORA:					// logical or
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				value = getValue(mode, ad);
 				accumulator |= value;
 				value = accumulator;
 
 			case AND:					// logical and
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				accumulator &= v;
 				value = accumulator;
 
 			case EOR:					// exclusive or
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				value = getValue(mode, ad);
 				accumulator = value ^ accumulator;
 				value = accumulator;
 
 			case ADC:					// add with carry
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				value = adc(v);
 
 			case STA:					// store accumulator
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 #if cputrace
 				Sys.print(" = #$" + StringTools.hex(read(ad), 2));
@@ -200,12 +199,12 @@ class CPU implements IState
 				write(ad, accumulator);
 
 			case LDA:					// load accumulator
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				value = accumulator = getValue(mode, ad);
 
 			case STX:					// store x
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				write(ad, x);
 #if cputrace
@@ -213,7 +212,7 @@ class CPU implements IState
 #end
 
 			case STY:					// store y
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				write(ad, y);
 #if cputrace
@@ -234,7 +233,7 @@ class CPU implements IState
 				of = false;
 
 			case BIT:					// bit test
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				zf = v & accumulator == 0;
@@ -244,7 +243,7 @@ class CPU implements IState
 			case CMP,
 				CPX,
 				CPY:					// compare [x/y]
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 
@@ -264,13 +263,13 @@ class CPU implements IState
 				nf = tmp & 0x80 == 0x80;
 
 			case SBC:					// subtract with carry
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				value = sbc(v);
 
 			case JSR:					// jump to subroutine
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				pushStack(pc - 1 >> 8);
 				pushStack((pc - 1) & 0xff);
@@ -286,7 +285,7 @@ class CPU implements IState
 				pc = popStack() | (popStack() << 8);
 
 			case ASL:					// arithmetic shift left
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				//write(ad, v);
@@ -295,7 +294,7 @@ class CPU implements IState
 				storeValue(mode, ad, value);
 
 			case LSR:					// logical shift right
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				//write(ad, v);
@@ -304,7 +303,7 @@ class CPU implements IState
 				storeValue(mode, ad, value);
 
 			case ROL:					// rotate left
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				//write(ad, v);
@@ -315,7 +314,7 @@ class CPU implements IState
 				storeValue(mode, ad, value);
 
 			case ROR:					// rotate right
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				//write(ad, v);
@@ -354,7 +353,7 @@ class CPU implements IState
 						false;
 				}
 
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				if (toCheck == checkAgainst)
 				{
@@ -367,19 +366,19 @@ class CPU implements IState
 				}
 
 			case JMP:					// jump
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				pc = ad;
 
 			case LDX:					// load x
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				x = getValue(mode, ad);
 				zf = x == 0;
 				nf = x & 0x80 == 0x80;
 
 			case LDY:					// load y
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				y = getValue(mode, ad);
 				zf = y == 0;
@@ -399,7 +398,7 @@ class CPU implements IState
 				accumulator = value = popStack();
 
 			case INC:					// increment memory
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				value = read(ad);
 				//write(ad, value);
@@ -417,7 +416,7 @@ class CPU implements IState
 				value = y;
 
 			case DEC:					// decrement memory
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				value = read(ad);
 				//write(ad, value);
@@ -462,18 +461,18 @@ class CPU implements IState
 				pc += 2;
 
 			case LAX:					// LDX + TXA
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				x = getValue(mode, ad);
 				accumulator = value = x;
 
 			case SAX:					// store (x & accumulator)
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				write(ad, x & accumulator);
 
 			case RLA:					// ROL then AND
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				value = (v << 1) & 0xff;
@@ -486,7 +485,7 @@ class CPU implements IState
 				value = accumulator;
 
 			case RRA:					// ROR then ADC
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				value = (v >> 1) & 0xff;
@@ -498,7 +497,7 @@ class CPU implements IState
 				value = accumulator = adc(value);
 
 			case SLO:					// ASL then ORA
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				cf = v & 0x80 != 0;
@@ -508,7 +507,7 @@ class CPU implements IState
 				value = accumulator;
 
 			case SRE:					// LSR then EOR
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad);
 				cf = v & 1 != 0;
@@ -518,7 +517,7 @@ class CPU implements IState
 				value = accumulator;
 
 			case DCP:					// DEC then CMP
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				v = getValue(mode, ad) - 1;
 				v &= 0xff;
@@ -532,7 +531,7 @@ class CPU implements IState
 				nf = tmp & 0x80 == 0x80;
 
 			case ISC:					// INC then SBC
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				value = (read(ad) + 1) & 0xff;
 				write(ad, value);
@@ -543,7 +542,7 @@ class CPU implements IState
 				breakInterrupt();
 
 			case ALR:
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				accumulator &= read(ad);
 				cf = accumulator & 1 != 0;
@@ -552,14 +551,14 @@ class CPU implements IState
 				value = accumulator;
 
 			case ANC:
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				accumulator &= read(ad);
 				cf = nf = accumulator & 0x80 == 0x80;
 				zf = accumulator == 0;
 
 			case ARR:
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				accumulator = (((ram.read(ad) & accumulator) >> 1)	 | (cf ? 0x80 : 0x00));
 				zf = accumulator == 0;
@@ -568,7 +567,7 @@ class CPU implements IState
 				of = accumulator & 0x20 == 0x20 != cf;
 
 			case AXS:
-				mode = Command.getMode(op);
+				mode = OpCode.getAddressingMode(byte);
 				ad = getAddress(mode);
 				value = x = (accumulator & x) - ram.read(ad);
 				cf = (x >= 0);

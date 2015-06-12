@@ -6,7 +6,7 @@ import strafe.ByteString;
 
 class RAM
 {
-	public var wram:ByteString = new ByteString(0x800);
+	public var _ram:ByteString = new ByteString(0x800);
 	public var mapper:Mapper;
 	public var ppu:PPU;
 	public var apu:APU;
@@ -18,7 +18,7 @@ class RAM
 
 	public function init(mapper:Mapper, ppu:PPU, apu:APU, controllers:Vector<NESController>)
 	{
-		wram.fillWith(0xff);
+		_ram.fillWith(0xff);
 		this.mapper = mapper;
 		this.ppu = ppu;
 		this.apu = apu;
@@ -30,7 +30,7 @@ class RAM
 		if (addr < 0x2000)
 		{
 			// RAM
-			return wram.get(addr & 0x7ff);
+			return _ram.get(addr & 0x7ff);
 		}
 		else if (addr > 0x4018)
 		{
@@ -64,7 +64,7 @@ class RAM
 		if (addr < 0x2000)
 		{
 			// write to RAM (mirrored)
-			wram.set(addr & 0x7ff, data);
+			_ram.set(addr & 0x7ff, data);
 		}
 		else if (addr > 0x4018)
 		{

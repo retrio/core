@@ -16,6 +16,7 @@ class Mapper implements IState
 			case 1: new MMC1Mapper();
 			case 2: new UnromMapper();
 			case 3: new CnromMapper();
+			case 4: new MMC3Mapper();
 			case 7: new AoromMapper();
 			default: throw ("Mapper " + mapperNumber + " is not implemented yet.");
 		}
@@ -91,7 +92,21 @@ class Mapper implements IState
 		mirror = rom.mirror;
 	}
 
-	public function read(addr:Int)
+	public function onLoad()
+	{
+		prgMap = new Vector(32);
+		for (i in 0 ... 32)
+		{
+			prgMap[i] = (0x400 * i) & (rom.prgSize - 1);
+		}
+		chrMap = new Vector(8);
+		for (i in 0 ... 8)
+		{
+			chrMap[i] = (0x400 * i) & (rom.chrSize - 1);
+		}
+	}
+
+	public inline function read(addr:Int)
 	{
 		if (addr >= 0x8000)
 		{
@@ -155,7 +170,7 @@ class Mapper implements IState
 	{
 		if (addr < 0x2000)
 		{
-			rom.chr.set(chrMap[addr >> 10] + (addr & 1023), data);
+			rom.chr.set(chrMap[addr >> 10] + (addr & 0x3ff), data);
 		}
 		else
 		{
@@ -189,19 +204,6 @@ class Mapper implements IState
 		}
 	}
 
-	public function onLoad()
-	{
-		prgMap = new Vector(32);
-		for (i in 0 ... 32)
-		{
-			prgMap[i] = (0x400 * i) & (rom.prgSize - 1);
-		}
-		chrMap = new Vector(8);
-		for (i in 0 ... 8)
-		{
-			chrMap[i] = (0x400 * i) & (rom.chrSize - 1);
-		}
-	}
 	public function onReset() {}
 	public function onCpuCycle() {}
 	public function onScanline(scanline:Int) {}

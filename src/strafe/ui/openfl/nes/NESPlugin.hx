@@ -18,7 +18,31 @@ import strafe.emu.nes.Palette;
 
 class NESPlugin extends EmulatorPlugin
 {
-	static var r:Rectangle = new Rectangle(0, 0, 256, 240);
+	var loopStart:Int = 0;
+	var loopEnd:Int = 0;
+	var clipTop(default, set):Int;
+	var clipBottom(default, set):Int;
+	function set_clipTop(y:Int)
+	{
+		clipTop = y;
+		setClip();
+		return y;
+	}
+	function set_clipBottom(y:Int)
+	{
+		clipBottom = y;
+		setClip();
+		return y;
+	}
+	function setClip()
+	{
+		loopStart = clipTop*256;
+		loopEnd = (240-(clipBottom))*256;
+		r.top = clipTop;
+		r.height = 240-(clipTop+clipBottom);
+
+		bmpData.fillRect(bmpData.rect, 0);
+	}
 
 	var _stage(get, never):flash.display.Stage;
 	inline function get__stage() return Lib.current.stage;
@@ -29,6 +53,7 @@ class NESPlugin extends EmulatorPlugin
 	var canvas:BitmapData;
 	var bmpData:BitmapData;
 	var m:Matrix;
+	var r:Rectangle = new Rectangle();
 	var pixels:ByteArray = new ByteArray();
 	var frameCount = 0;
 
@@ -50,6 +75,9 @@ class NESPlugin extends EmulatorPlugin
 			pixels.writeByte(0);
 
 		Memory.select(pixels);
+
+		clipTop = 8;
+		clipBottom = 8;
 	}
 
 	override public function resize(width:Int, height:Int)
@@ -91,7 +119,7 @@ class NESPlugin extends EmulatorPlugin
 		}
 
 		var bm = nes.ppu.bitmap;
-		for (i in 0 ... 256 * 240)
+		for (i in loopStart ... loopEnd) // 256 x 240
 		{
 			Memory.setI32(i*4, Palette.getColor(bm.get(i)));
 		}

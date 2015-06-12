@@ -3,6 +3,7 @@ package strafe.emu.nes.mappers;
 import strafe.emu.nes.Mapper;
 
 
+@:build(strafe.macro.Optimizer.build())
 class MMC1Mapper extends Mapper
 {
 	var mmc1shift:Int = 0;
@@ -111,11 +112,11 @@ class MMC1Mapper extends Mapper
 		if (Util.getbit(mmc1ctrl, 4))
 		{
 			// 4k bank mode
-			for (i in 0 ... 4)
+			@unroll for (i in 0 ... 4)
 			{
 				chrMap[i] = (0x400 * (i + 4 * mmc1chr0)) % rom.chrSize;
 			}
-			for (i in 0 ... 4)
+			@unroll for (i in 0 ... 4)
 			{
 				chrMap[i + 4] = (0x400 * (i + 4 * mmc1chr1)) % rom.chrSize;
 			}
@@ -123,7 +124,7 @@ class MMC1Mapper extends Mapper
 		else
 		{
 			// 8k bank mode
-			for (i in 0 ... 8)
+			@unroll for (i in 0 ... 8)
 			{
 				chrMap[i] = (0x400 * (i + 8 * (mmc1chr0 >> 1))) % rom.chrSize;
 			}
@@ -134,7 +135,7 @@ class MMC1Mapper extends Mapper
 		{
 			// 32k switch
 			// ignore low bank bit
-			for (i in 0 ... 32)
+			@unroll for (i in 0 ... 32)
 			{
 				prgMap[i] = (0x400 * i + 0x8000 * (mmc1prg >> 1)) % rom.prgSize;
 			}
@@ -142,11 +143,11 @@ class MMC1Mapper extends Mapper
 		else if (!Util.getbit(mmc1ctrl, 2))
 		{
 			// fix 1st bank, 16k switch 2nd bank
-			for (i in 0 ... 16)
+			@unroll for (i in 0 ... 16)
 			{
 				prgMap[i] = (0x400 * i);
 			}
-			for (i in 0 ... 16)
+			@unroll for (i in 0 ... 16)
 			{
 				prgMap[i + 16] = (0x400 * i + 0x4000 * mmc1prg) % rom.prgSize;
 			}
@@ -154,11 +155,11 @@ class MMC1Mapper extends Mapper
 		else
 		{
 			// fix last bank, switch 1st bank
-			for (i in 0 ... 16)
+			@unroll for (i in 0 ... 16)
 			{
 				prgMap[i] = (0x400 * i + 0x4000 * mmc1prg) % rom.prgSize;
 			}
-			for (i in 1 ... 17)
+			@unroll for (i in 1 ... 17)
 			{
 				prgMap[32 - i] = (rom.prgSize - (0x400 * i));
 				if ((prgMap[32 - i]) > 0x40000)

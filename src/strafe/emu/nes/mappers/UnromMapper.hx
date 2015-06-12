@@ -3,6 +3,7 @@ package strafe.emu.nes.mappers;
 import strafe.emu.nes.Mapper;
 
 
+@:build(strafe.macro.Optimizer.build())
 class UnromMapper extends Mapper
 {
 	var bank:Int = 0;
@@ -28,7 +29,7 @@ class UnromMapper extends Mapper
 		{
 			bank = data & 0xf;
 			// remap switchable 1st PRG bank
-			for (i in 0 ... 16)
+			@unroll for (i in 0 ... 16)
 			{
 				prgMap[i] = (0x400 * (i + 16 * bank)) & (rom.prgSize - 1);
 			}
