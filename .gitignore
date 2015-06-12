@@ -1,7 +1,0 @@
-*.ndll
-bin
-.DS_Store
-*.log
-test
-test_results
-bin-*

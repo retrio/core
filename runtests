@@ -1,2 +1,0 @@
-#!/bin/bash
-haxe test.hxml && test/Test | tee test.log && open test_results/*.png
