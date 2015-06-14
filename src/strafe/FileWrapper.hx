@@ -1,16 +1,10 @@
 package strafe;
 
 import haxe.io.Bytes;
+import haxe.io.Input;
 
 
-#if sys
-typedef FileType = sys.io.FileInput;
-#else
-typedef FileType = haxe.io.BytesInput;
-#end
-
-
-abstract FileWrapper(FileType) from FileType to FileType
+abstract FileWrapper(Input) from Input to Input
 {
 	public static function read(path:String):FileWrapper
 	{
@@ -21,7 +15,7 @@ abstract FileWrapper(FileType) from FileType to FileType
 #end
 	}
 
-	function new(input:FileType)
+	public function new(input:Input)
 	{
 		this = input;
 	}

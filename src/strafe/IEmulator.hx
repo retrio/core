@@ -5,6 +5,8 @@ import haxe.io.Input;
 
 interface IEmulator
 {
+	public var extensions:Array<String>;
+
 	// load a game and start emulation
 	public function loadGame(gameData:FileWrapper):Void;
 

@@ -1,15 +1,17 @@
 package strafe.ui.openfl;
 
 import haxe.Serializer;
-import flash.Memory;
+import flash.display.BitmapData;
 import flash.display.Sprite;
 
 
 class EmulatorPlugin extends Sprite
 {
-	public var running:Bool;
+	public var running:Bool = false;
+	public var initialized:Bool = false;
 	public var emu:IEmulator;
 	public var frameSkip:Int = 0;
+	public var extensions:Array<String>;
 
 	// this is an abstract class
 	function new()
@@ -37,4 +39,6 @@ class EmulatorPlugin extends Sprite
 	{
 		emu = state;
 	}
+
+	public function capture():Null<BitmapData> return null;
 }

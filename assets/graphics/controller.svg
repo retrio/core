@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- License Agreement at http://iconmonstr.com/license/ -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   x="0px"
+   y="0px"
+   width="512px"
+   height="512px"
+   viewBox="0 0 512 512"
+   style="enable-background:new 0 0 512 512;"
+   xml:space="preserve"
+   id="svg3073"
+   inkscape:version="0.48.2 r9819"
+   sodipodi:docname="controller.svg"><metadata
+   id="metadata3080"><rdf:RDF><cc:Work
+       rdf:about=""><dc:format>image/svg+xml</dc:format><dc:type
+         rdf:resource="http://purl.org/dc/dcmitype/StillImage" /><dc:title /></cc:Work></rdf:RDF></metadata><defs
+   id="defs3078" /><sodipodi:namedview
+   pagecolor="#ffffff"
+   bordercolor="#666666"
+   borderopacity="1"
+   objecttolerance="10"
+   gridtolerance="10"
+   guidetolerance="10"
+   inkscape:pageopacity="0"
+   inkscape:pageshadow="2"
+   inkscape:window-width="1276"
+   inkscape:window-height="756"
+   id="namedview3076"
+   showgrid="false"
+   inkscape:zoom="1.0507812"
+   inkscape:cx="256"
+   inkscape:cy="256"
+   inkscape:window-x="4"
+   inkscape:window-y="0"
+   inkscape:window-maximized="1"
+   inkscape:current-layer="svg3073" />
+<path
+   id="gamepad-3-icon"
+   d="M365.667,225.817v-0.074H150c-55.229,0-100,44.772-100,100.001s44.771,100,100,100  c25.58,0,48.908-9.609,66.588-25.412c21.827-19.508,55.603-21.137,78.115-0.635c17.764,16.18,41.375,26.047,67.297,26.047  c55.229,0,100-44.771,100-100C462,271.744,419.195,227.747,365.667,225.817z M189.5,336.895h-28.35v28.35h-24.3v-28.35H108.5  v-24.301h28.351v-28.35h24.3v28.35h28.35V336.895z M271.5,352.844h-30v-15h30V352.844z M352.99,288.811  c5.694-5.693,14.927-5.693,20.619,0c5.694,5.693,5.694,14.926,0,20.619c-5.692,5.693-14.925,5.693-20.619,0  C347.298,303.736,347.298,294.504,352.99,288.811z M341.358,335.053c-5.693,5.695-14.926,5.695-20.619,0  c-5.693-5.693-5.693-14.924,0-20.619c5.694-5.693,14.926-5.693,20.619,0C347.053,320.129,347.053,329.359,341.358,335.053z   M373.61,361.225c-5.693,5.693-14.926,5.693-20.62,0c-5.693-5.693-5.693-14.926,0.001-20.619c5.693-5.693,14.926-5.693,20.618,0  C379.304,346.299,379.304,355.531,373.61,361.225z M405.766,335.053c-5.692,5.695-14.926,5.695-20.619,0  c-5.693-5.693-5.693-14.924,0-20.619c5.694-5.693,14.927-5.693,20.619,0C411.459,320.129,411.46,329.359,405.766,335.053z   M265.688,194.782v10.962H245.39v-10.962c0-26.72-8.237-31.061-37.144-36.433c-44.346-8.243-58.861-23.196-51.254-72.094  l20.108,2.807c-6.104,38.547,2.114,43.245,34.854,49.33C237.162,143.076,265.688,149.078,265.688,194.782z"
+   style="fill:#cccccc" />
+</svg>
