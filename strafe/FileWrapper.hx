@@ -10,8 +10,10 @@ abstract FileWrapper(Input) from Input to Input
 	{
 #if sys
 		return new FileWrapper(sys.io.File.read(path, true));
-#else
+#elseif flash
 		return new FileWrapper(new haxe.io.BytesInput(Bytes.ofData(openfl.Assets.getBytes(path))));
+#else
+		return null;
 #end
 	}
 

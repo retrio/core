@@ -7,11 +7,12 @@ import openfl.Assets;
 
 class Button
 {
+	public var tooltip:String;
+
 	var img:BitmapData;
 	var imgHover:BitmapData;
 	var imgClick:BitmapData;
 
-	var tooltip:String;
 	var clickHandler:Void->Void;
 
 	public function new(def:ButtonDef)

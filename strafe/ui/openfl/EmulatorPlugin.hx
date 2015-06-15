@@ -17,6 +17,8 @@ class EmulatorPlugin extends Sprite
 	function new()
 	{
 		super();
+
+		mouseEnabled = mouseChildren = false;
 	}
 
 	public function frame() {}

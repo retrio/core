@@ -34,7 +34,7 @@ class FilePicker
 	{
 #if flash
 		// TODO
-		var fr = new flash.net.FileReference();
+		/*var fr = new flash.net.FileReference();
 		try
 		{
 			fr.browse([for (x in extensions) new flash.net.FileFilter("ROM files", extensions.join(';'))]);
@@ -46,7 +46,7 @@ class FilePicker
 				fr.cancel();
 			});
 		}
-		catch (e:Dynamic) {}
+		catch (e:Dynamic) {}*/
 #elseif sys
 		var result:String = systools.Dialogs.saveFile("Save file", "", "");
 		//if (result != null)

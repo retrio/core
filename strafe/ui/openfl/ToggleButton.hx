@@ -5,11 +5,14 @@ import flash.display.BitmapData;
 import flash.display.Sprite;
 import flash.events.Event;
 import flash.events.MouseEvent;
+import flash.text.TextField;
 import openfl.Assets;
 
 
-class ToggleButton extends Sprite
+class ToggleButton extends Sprite implements IButton
 {
+	public var hint:TextField;
+
 	var btns:Array<Button>;
 
 	var bmp:Bitmap;
@@ -17,6 +20,7 @@ class ToggleButton extends Sprite
 	function set_mode(m:Int)
 	{
 		bmp.bitmapData = btns[m].getImage(hover, click);
+		hint.text = btns[m].tooltip;
 		return mode = m;
 	}
 	var modeFunction:Void->Int;
@@ -40,14 +44,18 @@ class ToggleButton extends Sprite
 		width = img.width;
 		height = img.height;
 
+		hint = new ButtonHint(btns[0].tooltip);
+
 		this.modeFunction = modeFunction;
 
 		this.addEventListener(Event.ENTER_FRAME, update);
-		this.addEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
-		this.addEventListener(MouseEvent.MOUSE_UP, onMouseOver);
-		this.addEventListener(MouseEvent.MOUSE_OVER, onMouseOver);
-		this.addEventListener(MouseEvent.MOUSE_OUT, onMouseOut);
-		this.addEventListener(MouseEvent.CLICK, onClick);
+#if !flash
+		addEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
+		addEventListener(MouseEvent.MOUSE_UP, onMouseOver);
+		addEventListener(MouseEvent.MOUSE_OVER, onMouseOver);
+		addEventListener(MouseEvent.MOUSE_OUT, onMouseOut);
+		addEventListener(MouseEvent.CLICK, onClick);
+#end
 	}
 
 	function update(e:Dynamic)
@@ -55,28 +63,32 @@ class ToggleButton extends Sprite
 		mode = modeFunction();
 	}
 
-	function onClick(e:Dynamic)
+	public function onClick(e:Dynamic)
 	{
 		btns[mode].onClick();
 	}
 
-	function onMouseOver(e:Dynamic)
+	public function onMouseOver(e:Dynamic)
 	{
 		// TODO: show tooltip
 		hover = true;
 		click = false;
 		mode = mode;
+
+		hint.visible = true;
 	}
 
-	function onMouseOut(e:Dynamic)
+	public function onMouseOut(e:Dynamic)
 	{
 		// TODO: hide tooltip
 		hover = false;
 		click = false;
 		mode = mode;
+
+		hint.visible = false;
 	}
 
-	function onMouseDown(e:Dynamic)
+	public function onMouseDown(e:Dynamic)
 	{
 		hover = true;
 		click = true;

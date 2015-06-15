@@ -6,6 +6,5 @@
     "description": "Core library for strafe.io emulators.",
     "version": "0.1.0",
     "contributors": [ "bendmorris" ],
-    "classPath": "src",
     "dependencies": {}
 }
