@@ -5,7 +5,10 @@ import haxe.io.Input;
 
 interface IEmulator
 {
+	public var buffer:ByteString;
 	public var extensions:Array<String>;
+	public var width:Int;
+	public var height:Int;
 
 	// load a game and start emulation
 	public function loadGame(gameData:FileWrapper):Void;
@@ -18,4 +21,6 @@ interface IEmulator
 
 	// called once per frame
 	public function frame():Void;
+
+	public function getColor(c:Int):Int;
 }
