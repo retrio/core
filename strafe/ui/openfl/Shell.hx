@@ -181,7 +181,9 @@ class Shell extends Sprite
 		toolbar.addButton(new ToolbarButton({img:"load", tooltip:"Load State", clickHandler:null}));
 		toolbar.addButton(new ToolbarButton({img:"save", tooltip:"Save State", clickHandler:null}));
 		toolbar.addButton(new ToolbarButton({img:"controller", tooltip:"Controls", clickHandler:null}));
+#if screenshot
 		toolbar.addButton(new ToolbarButton({img:"screenshot", tooltip:"Screenshot", clickHandler:screenshot}));
+#end
 		toolbar.addButton(new ToolbarButton({img:"settings", tooltip:"Settings", clickHandler:null}));
 	}
 
@@ -227,6 +229,7 @@ class Shell extends Sprite
 		running = true;
 	}
 
+#if screenshot
 	function screenshot()
 	{
 		if (emu == null || !loaded) return;
@@ -237,12 +240,13 @@ class Shell extends Sprite
 #if flash
 		var fr = new flash.net.FileReference();
 		fr.save(encoded, StringTools.replace(path, ':', ''));
-#else
+#elseif sys
 		var file = sys.io.File.write(path, true);
 		file.writeString(encoded.toString());
 		file.close();
 #end
 	}
+#end
 
 	function reset()
 	{

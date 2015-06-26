@@ -22,18 +22,8 @@ abstract FileWrapper(Input) from Input to Input
 		this = input;
 	}
 
-	public inline function readByte():UInt
-	{
-		return this.readByte();
-	}
-
-	public inline function readBytes(n:Int):Bytes
-	{
-		return this.read(n);
-	}
-
-	public inline function readString(length:Int):String
-	{
-		return this.readString(length);
-	}
+	public inline function readByte():UInt return this.readByte();
+	public inline function readBytes(n:Int):Bytes return this.read(n);
+	public inline function readAll():Bytes return this.readAll();
+	public inline function readString(length:Int):String return this.readString(length);
 }

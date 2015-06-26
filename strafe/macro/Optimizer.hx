@@ -12,59 +12,12 @@ class Optimizer
 		return haxe.macro.Context.getBuildFields().map(transformField);
 	}
 
-	static function transformField(field:Field)
-	{
-		switch (field.kind)
-		{
-			case FFun(f):
-				transformExpr(f.expr);
-			default:
-		}
-		return field;
-	}
-
-	static function transformExpr(expr:Expr)
-	{
-		switch (expr.expr)
-		{
-			case EMeta(meta, e):
-				switch(meta.name)
-				{
-					case "unroll":
-						unroll(e);
-
-					case "simplify":
-						expr.expr = ExprTools.map(e, simplify).expr;
-				}
-
-			default:
-				ExprTools.iter(expr, transformExpr);
-		}
-	}
-
 	/**
-	 * Substitute all occurrences of variable `varName` with constant `value`.
-	 */
-	static function substituteVariable(expr:Expr, varName:String, value:Constant)
-	{
-		switch(expr.expr)
-		{
-			case EConst(CIdent(x)):
-				if (x == varName)
-					return {expr: EConst(value), pos:expr.pos};
-				else
-					return ExprTools.map(expr, function(e) return substituteVariable(expr, varName, value));
-			default:
-				return ExprTools.map(expr, function(e) return substituteVariable(e, varName, value));
-		}
-	}
-
-	/**
-	 * Eliminate unnecessary expressions such as conditionals on constant
-	 * expressions. This is run on expressions marked with @simplify or other
+	 * Propogate constant values forward to eliminate unnecessary branching.
+	 * This function is run on expressions marked with @simplify or other
 	 * manipulated expressions such as unrolled loops.
 	 */
-	static function simplify(expr:Expr):Expr
+	public static function simplify(expr:Expr):Expr
 	{
 		switch(expr.expr)
 		{
@@ -86,8 +39,53 @@ class Optimizer
 					return ExprTools.map(expr, simplify);
 				}
 
+			// TODO: case ESwitch()
+
 			default:
 				return ExprTools.map(expr, simplify);
+		}
+	}
+
+	/**
+	 * Substitute all occurrences of variable `varName` with constant `value`.
+	 */
+	public static function substituteVariable(expr:Expr, varName:String, value:Constant)
+	{
+		switch(expr.expr)
+		{
+			case EConst(CIdent(x)):
+				if (x == varName)
+					return {expr: EConst(value), pos:expr.pos};
+				else
+					return ExprTools.map(expr, function(e) return substituteVariable(expr, varName, value));
+			default:
+				return ExprTools.map(expr, function(e) return substituteVariable(e, varName, value));
+		}
+	}
+
+	static function transformField(field:Field)
+	{
+		switch (field.kind)
+		{
+			case FFun(f):
+				transformExpr(f.expr);
+			default:
+		}
+		return field;
+	}
+
+	static function transformExpr(expr:Expr)
+	{
+		switch (expr.expr)
+		{
+			case EMeta({name:"unroll"}, e):
+				unroll(e);
+
+			case EMeta({name:"simplify"}, e):
+				expr.expr = ExprTools.map(e, simplify).expr;
+
+			default:
+				ExprTools.iter(expr, transformExpr);
 		}
 	}
 

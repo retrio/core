@@ -67,6 +67,7 @@ class Test
 
 			Sys.println("\n>> Running test " + rom + (hash == null ? " (NO HASH)" : "") + "...");
 			var cycles = 0;
+			var frameCount = 0;
 			var success = false;
 			var currentHash = "";
 			var lastHash = "";
@@ -74,13 +75,14 @@ class Test
 			var withoutChange = Math.max(maxCyclesWithoutChange,
 				test.has.frames ? (Std.parseInt(test.att.frames)/framesPerCycle) : 0);
 
-			while (cycles < maxCyclesWithoutChange || frames < expFrames)
+			while (cycles < maxCyclesWithoutChange || frameCount < expFrames)
 			{
 				for (i in 0 ... framesPerCycle)
 				{
 					try
 					{
 						emu.frame();
+						++frameCount;
 					}
 					catch(e:Dynamic)
 					{

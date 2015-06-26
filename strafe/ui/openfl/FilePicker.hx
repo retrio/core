@@ -24,7 +24,7 @@ class FilePicker
 		catch (e:Dynamic) {}
 #elseif sys
 		var filters = {count: 1, descriptions: ["ROM files"], extensions: [extensions.join(';')]};
-		var result:Array<String> = systools.Dialogs.openFile("Choose a ROM file.", "", filters);
+		var result:Array<String> = systools.Dialogs.openFile("Choose a ROM file.", "", filters, false);
 		if (result != null && result.length > 0)
 			onSuccess(sys.io.File.getBytes(result[0]));
 #end
