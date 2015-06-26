@@ -60,6 +60,7 @@ class Test
 			++i;
 			var rom = test.att.rom;
 			var hash = test.has.hash ? test.att.hash : null;
+			var expFrames = test.has.frames ? Std.parseInt(test.att.frames) : 0;
 
 			var f = FileWrapper.read(romDir + (StringTools.endsWith(romDir, "/") ? "" : "/") + rom);
 			emu.loadGame(f);
@@ -73,7 +74,7 @@ class Test
 			var withoutChange = Math.max(maxCyclesWithoutChange,
 				test.has.frames ? (Std.parseInt(test.att.frames)/framesPerCycle) : 0);
 
-			while (cycles < maxCyclesWithoutChange)
+			while (cycles < maxCyclesWithoutChange || frames < expFrames)
 			{
 				for (i in 0 ... framesPerCycle)
 				{
@@ -88,7 +89,8 @@ class Test
 					}
 				}
 
-				currentHash = haxe.crypto.Sha1.encode(emu.buffer.toString());
+				currentHash = bufferHash(emu.buffer);
+
 				if (hash != null && currentHash == hash)
 				{
 					success = true;
@@ -116,7 +118,7 @@ class Test
 			}
 			else
 			{
-				Sys.println("FAILED!");
+				Sys.println(hash == null ? "outcome unclear, marking as failed" : "FAILED!");
 				Sys.println(currentHash);
 
 				var resultImg = "test_results/" + StringTools.lpad(Std.string(i), "0", 3) + "-" + rom + ".png";
@@ -147,5 +149,24 @@ class Test
 		Sys.println("Succeeded:  " + successes);
 		Sys.println("Failed:     " + failures.length);
 		Sys.println(failures.join(' '));
+	}
+
+	static inline function bufferHash(buffer:ByteString)
+	{
+		var bytesSeen:Map<Int, String> = new Map();
+		var byteCount:Int = 0;
+		var b = new StringBuf();
+
+		for (i in 0 ... buffer.length)
+		{
+			var c = buffer.get(i);
+			if (!bytesSeen.exists(c))
+			{
+				bytesSeen[c] = Std.string(byteCount++);
+			}
+			b.add(bytesSeen[c]);
+		}
+
+		return haxe.crypto.Sha1.encode(b.toString());
 	}
 }
