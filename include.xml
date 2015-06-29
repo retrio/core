@@ -2,12 +2,14 @@
 <project>
 	<assets path="assets/graphics" rename="graphics" include="*.png" type="image" embed="true"/>
 	<assets path="assets/fonts" rename="fonts" include="*.ttf" type="font" embed="true"/>
-    <haxedef name="analyzer"/>
+	<haxedef name="analyzer"/>
 
-    <haxedef name="screenshot" if="flash || sys"/>
+	<haxedef name="screenshot" if="flash || sys"/>
 
 	<haxeflag name="--no-inline" if="debug"/>
 	<haxeflag name="--no-inline" if="profile"/>
 	<haxedef name="HXCPP_STACK_TRACE" if="profile"/>
 	<haxedef name="HXCPP_STACK_LINE" if="profile"/>
+
+	<ndll name="systools" haxelib="systools" if="sys"/>
 </project>

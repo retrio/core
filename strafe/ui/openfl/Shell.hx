@@ -220,13 +220,12 @@ class Shell extends Sprite
 	function loadRom()
 	{
 		if (emu == null) return;
-		FilePicker.openFile(emu.extensions, function(bytes:Bytes) {
-			var file = new FileWrapper(new haxe.io.BytesInput(bytes));
+		FilePicker.openFile(emu.extensions, function(file:FileWrapper) {
 			emu.loadGame(file);
 			emu.start();
+			loaded = true;
+			running = true;
 		});
-		loaded = true;
-		running = true;
 	}
 
 #if screenshot
