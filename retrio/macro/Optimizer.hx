@@ -7,9 +7,28 @@ import haxe.macro.Context;
 
 class Optimizer
 {
+	static var _inlinedFunctions:Map<String, FieldType>;
+	public static function findInlinedFunctions(fields:Array<Field>)
+	{
+		_inlinedFunctions = new Map();
+
+		// find all inlined functions
+		for (field in fields)
+		{
+			if (field.access.indexOf(AInline) > -1)
+			{
+				_inlinedFunctions[field.name] = field.kind;
+			}
+		}
+	}
+
 	public static function build()
 	{
-		return haxe.macro.Context.getBuildFields().map(transformField);
+		var buildFields = haxe.macro.Context.getBuildFields();
+
+		findInlinedFunctions(buildFields);
+
+		return buildFields.map(transformField);
 	}
 
 	/**
@@ -22,6 +41,7 @@ class Optimizer
 		switch(expr.expr)
 		{
 			case EIf(cond, yes, no):
+				// pre-compute if branch if possible
 				try
 				{
 					var value = ExprTools.getValue(cond);
@@ -31,7 +51,7 @@ class Optimizer
 					}
 					else
 					{
-						return {expr: EBlock([]), pos: expr.pos};
+						return ExprTools.map(no, simplify);
 					}
 				}
 				catch(e:Dynamic)
@@ -39,7 +59,84 @@ class Optimizer
 					return ExprTools.map(expr, simplify);
 				}
 
-			// TODO: case ESwitch()
+			case ESwitch(cond, cases, def):
+				// pre-compute switch branch if possible
+				try
+				{
+					var value = ExprTools.getValue(cond);
+					for (caseExpr in cases)
+					{
+						var values = caseExpr.values;
+						for (value in values)
+						{
+							try
+							{
+								var caseValue = ExprTools.getValue(value);
+								if (value == caseValue)
+								{
+									// this is the correct case
+									return ExprTools.map(caseExpr.expr, simplify);
+								}
+							}
+							catch (e:Dynamic)
+							{
+								// couldn't evaluate this value, so we can't eliminate this switch
+								return ExprTools.map(expr, simplify);
+							}
+						}
+					}
+					return ExprTools.map(def, simplify);
+				}
+				catch(e:Dynamic)
+				{
+					return ExprTools.map(expr, simplify);
+				}
+
+			/*case ECall(f, params):
+				// replace inlined function call with simplified function body
+				switch(f.expr)
+				{
+					case EConst(CIdent(n)):
+						if (_inlinedFunctions.exists(n))
+						{
+							var func:Function = switch(_inlinedFunctions[n])
+							{
+								case FFun(f):
+									f;
+								default:
+									null;
+							}
+							var newExpr = func.expr;
+							var values:Array<Expr> = [];
+							for (p in params)
+							{
+								try
+								{
+									var value = ExprTools.getValue(p);
+									values.push(${p});
+								}
+								catch (e:Dynamic)
+								{
+									values.push(null);
+								}
+							}
+							for (i in 0 ... values.length)
+							{
+								if (values[i] != null)
+								{
+									newExpr = substituteVariable(newExpr, func.args[i].name, values[i]);
+								}
+							}
+							return ExprTools.map(newExpr, simplify);
+						}
+						else
+						{
+							return expr;
+						}
+
+					default:
+						return expr;
+				}*/
 
 			default:
 				return ExprTools.map(expr, simplify);
@@ -49,15 +146,17 @@ class Optimizer
 	/**
 	 * Substitute all occurrences of variable `varName` with constant `value`.
 	 */
-	public static function substituteVariable(expr:Expr, varName:String, value:Constant)
+	public static function substituteVariable(expr:Expr, varName:String, value:Expr)
 	{
 		switch(expr.expr)
 		{
 			case EConst(CIdent(x)):
 				if (x == varName)
-					return {expr: EConst(value), pos:expr.pos};
+				{
+					return value;
+				}
 				else
-					return ExprTools.map(expr, function(e) return substituteVariable(expr, varName, value));
+					return expr;
 			default:
 				return ExprTools.map(expr, function(e) return substituteVariable(e, varName, value));
 		}
@@ -106,7 +205,7 @@ class Optimizer
 
 				for (i in Std.parseInt(loopStart) ... Std.parseInt(loopEnd))
 				{
-					var iteration = ExprTools.map(inner, function(e) return substituteVariable(e, id, CInt(Std.string(i))));
+					var iteration = ExprTools.map(inner, function(e) return substituteVariable(e, id, {pos: expr.pos, expr: EConst(CInt(Std.string(i)))}));
 					iteration = ExprTools.map(iteration, simplify);
 					block.push(iteration);
 				}
@@ -115,7 +214,7 @@ class Optimizer
 
 
 			default:
-				ExprTools.iter(expr, transformExpr);
+				throw "only for loops can be unrolled";
 		}
 	}
 }
