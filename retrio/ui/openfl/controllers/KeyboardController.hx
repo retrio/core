@@ -1,4 +1,4 @@
-package retrio.ui.openfl;
+package retrio.ui.openfl.controllers;
 
 import haxe.ds.Vector;
 import flash.Lib;
