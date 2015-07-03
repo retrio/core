@@ -6,7 +6,7 @@ import flash.events.Event;
 
 class FilePicker
 {
-	public static function openFile(extensions:Array<String>, onSuccess:FileWrapper->Void)
+	public static function openFile(extensions:Array<String>, onSuccess:FileWrapper->Void, ?onCancel:Void->Void)
 	{
 #if flash
 		var fr = new flash.net.FileReference();
@@ -20,13 +20,18 @@ class FilePicker
 				onSuccess(new FileWrapper(new haxe.io.BytesInput(Bytes.ofData(fr.data))));
 				fr.cancel();
 			});
+			fr.addEventListener(Event.CANCEL, function(e:Dynamic) {
+				onCancel();
+			});
 		}
 		catch (e:Dynamic) {}
 #elseif sys
 		var filters = {count: 1, descriptions: ["ROM files"], extensions: [extensions.join(';')]};
-		var result:Array<String> = systools.Dialogs.openFile("Choose a ROM file.", "", filters, false);
+		var result:Array<String> = systools.Dialogs.openFile("Choose a ROM file.", "", filters);
 		if (result != null && result.length > 0)
 			onSuccess(FileWrapper.read(result[0]));
+		else
+			onCancel();
 #end
 	}
 

@@ -28,6 +28,7 @@ class Shell extends Sprite
 
 	var loaded:Bool = false;
 	var running:Bool = false;
+	var _running:Bool = true;
 
 	var _m:Matrix;
 	var _pixels:ByteArray = new ByteArray();
@@ -205,6 +206,17 @@ class Shell extends Sprite
 		running = true;
 	}
 
+	function temporaryPause()
+	{
+		_running = loaded ? running : true;
+		running = false;
+	}
+
+	function temporaryResume()
+	{
+		running = _running;
+	}
+
 	function changeSpeed()
 	{
 		speed = switch(speed)
@@ -220,18 +232,20 @@ class Shell extends Sprite
 	function loadRom()
 	{
 		if (emu == null) return;
+		temporaryPause();
 		FilePicker.openFile(emu.extensions, function(file:FileWrapper) {
 			emu.loadGame(file);
 			emu.start();
 			loaded = true;
-			running = true;
-		});
+			resume();
+		}, temporaryResume);
 	}
 
 #if screenshot
 	function screenshot()
 	{
 		if (emu == null || !loaded) return;
+		temporaryPause();
 		var bmd = emu.capture();
 		if (bmd == null) return;
 		var encoded:ByteArray = bmd.encode(bmd.rect, new flash.display.PNGEncoderOptions());
@@ -244,6 +258,7 @@ class Shell extends Sprite
 		file.writeString(encoded.toString());
 		file.close();
 #end
+		temporaryResume();
 	}
 #end
 
