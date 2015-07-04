@@ -15,12 +15,20 @@ class Shell extends Sprite
 {
 	static inline var TOOLBAR_HEIGHT:Int = 48;
 
+	static var _plugins:Map<String, EmulatorPlugin> = new Map();
+	public static function registerPlugin(name:String, plugin:EmulatorPlugin):Bool
+	{
+		_plugins.set(name, plugin);
+		return true;
+	}
+
 	var _stage(get, never):flash.display.Stage;
 	inline function get__stage() return Lib.current.stage;
 
 	var toolbar:Toolbar;
 
-	var emu:EmulatorPlugin;
+	var plugin:EmulatorPlugin;
+	var io:IEnvironment;
 	var fps:Int;
 	var bmp:Bitmap;
 	var canvas:BitmapData;
@@ -42,10 +50,10 @@ class Shell extends Sprite
 	var speed(default, set):EmulationSpeed = Normal;
 	function set_speed(s:EmulationSpeed)
 	{
-		if (emu == null) return speed = Normal;
+		if (plugin == null) return speed = Normal;
 		if (speed == s) return s;
 
-		emu.frameSkip = switch(s)
+		plugin.frameSkip = switch(s)
 		{
 			case Slow, Normal: 0;
 			case Fast2x: 1;
@@ -56,34 +64,48 @@ class Shell extends Sprite
 		return speed = s;
 	}
 
-	public function new(?fps:Int=60)
+	public function new(io:IEnvironment, ?fps:Int=60)
 	{
 		super();
 #if flash
 		mouseEnabled = false;
 #end
-		_stage.quality = flash.display.StageQuality.LOW;
+		this.io = io;
+		this.fps = fps;
+
 		if (_stage != null) onStage(null);
 		else Lib.current.addEventListener(Event.ADDED_TO_STAGE, onStage);
 	}
 
-	public function loadPlugin(e:EmulatorPlugin)
+	public function loadPlugin(name:String)
 	{
-		if (this.emu != null)
+		if (!_plugins.exists(name))
+			throw "Unrecognized plugin: " + name;
+
+		if (this.plugin != null)
 		{
 			unloadPlugin();
 		}
 
-		this.emu = e;
-		e.resize(_width, _height);
-		addChildAt(e, 0);
+		this.plugin = _plugins[name];
+		this.plugin.resize(_width, _height);
+		addChildAt(this.plugin, 0);
+
+		this.plugin.emu.io = io;
+
+		this.plugin.activate();
 
 		//speed = Fast;
 	}
 
 	public function loadGame(f:FileWrapper)
 	{
-		this.emu.loadGame(f);
+		this.plugin.loadGame(f);
+	}
+
+	public function addController(c:IController, ?port:Int=null)
+	{
+		return plugin.emu.addController(c, port);
 	}
 
 	public function onResize(e:Event)
@@ -93,17 +115,12 @@ class Shell extends Sprite
 
 		if (_width == 0 || _height == 0) return;
 
-		if (emu != null)
+		if (plugin != null)
 		{
-			emu.resize(_width, _height);
+			plugin.resize(_width, _height);
 		}
 
 		toolbar.y = _height;
-	}
-
-	function callLater(f:Void->Void)
-	{
-		_callLater.push(f);
 	}
 
 	public function update(e:Dynamic)
@@ -116,21 +133,21 @@ class Shell extends Sprite
 			call();
 		}
 
-		if (emu != null)
+		if (plugin != null)
 		{
 			switch(speed)
 			{
 				case Slow:
 					_slow = !_slow;
-					if (_slow) emu.frame();
+					if (_slow) plugin.frame();
 				case Normal:
-					emu.frame();
+					plugin.frame();
 				case Fast2x:
-					@unroll for (i in 0 ... 2) emu.frame();
+					@unroll for (i in 0 ... 2) plugin.frame();
 				case Fast3x:
-					@unroll for (i in 0 ... 3) emu.frame();
+					@unroll for (i in 0 ... 3) plugin.frame();
 				case Fast4x:
-					@unroll for (i in 0 ... 4) emu.frame();
+					@unroll for (i in 0 ... 4) plugin.frame();
 			}
 		}
 	}
@@ -139,10 +156,13 @@ class Shell extends Sprite
 	{
 		if (e != null) Lib.current.removeEventListener(Event.ADDED_TO_STAGE, onStage);
 
+		var _stage = this._stage;
+		_stage.quality = flash.display.StageQuality.LOW;
 		_stage.addChild(this);
-
 		_stage.addEventListener(Event.ENTER_FRAME, update);
 		_stage.addEventListener(Event.RESIZE, onResize);
+		_stage.addEventListener(Event.ACTIVATE, onActivate);
+		_stage.addEventListener(Event.DEACTIVATE, onDeactivate);
 
 		createToolbar();
 
@@ -151,6 +171,27 @@ class Shell extends Sprite
 
 		_width = Std.int(_stage.stageWidth);
 		_height = Std.int(_stage.stageHeight - TOOLBAR_HEIGHT);
+
+		//_stage.onQuit = onQuit;
+	}
+
+	function onActivate(e:Dynamic)
+	{
+		if (plugin == null || !loaded) return;
+		temporaryResume();
+		plugin.activate();
+	}
+
+	function onDeactivate(e:Dynamic)
+	{
+		if (plugin == null || !loaded) return;
+		temporaryPause();
+		plugin.deactivate();
+	}
+
+	function onQuit()
+	{
+		if (plugin != null) unloadPlugin();
 	}
 
 	function createToolbar()
@@ -165,7 +206,7 @@ class Shell extends Sprite
 		toolbar.addButton(new ToggleButton([
 			{img:"play", tooltip:"Resume", clickHandler:resume},
 			{img:"pause", tooltip:"Pause", clickHandler:pause},
-		], function() return (emu != null && running) ? 1 : 0));
+		], function() return (plugin != null && running) ? 1 : 0));
 		toolbar.addButton(new ToggleButton([
 				{img:"ff", tooltip:"Change Speed", clickHandler:changeSpeed},
 				{img:"ff2x", tooltip:"Change Speed", clickHandler:changeSpeed},
@@ -190,19 +231,23 @@ class Shell extends Sprite
 
 	function unloadPlugin()
 	{
-		removeChild(emu);
-		emu = null;
+		if (plugin != null)
+		{
+			plugin.close();
+			removeChild(plugin);
+			plugin = null;
+		}
 	}
 
 	function pause()
 	{
-		if (emu == null || !loaded) return;
+		if (plugin == null || !loaded) return;
 		running = false;
 	}
 
 	function resume()
 	{
-		if (emu == null || !loaded) return;
+		if (plugin == null || !loaded) return;
 		running = true;
 	}
 
@@ -231,22 +276,27 @@ class Shell extends Sprite
 
 	function loadRom()
 	{
-		if (emu == null) return;
+		if (plugin == null) return;
 		temporaryPause();
-		FilePicker.openFile(emu.extensions, function(file:FileWrapper) {
-			emu.loadGame(file);
-			emu.start();
+		io.openFileDialog(plugin.extensions, function(file:FileWrapper) {
+			plugin.loadGame(file);
+			plugin.start();
 			loaded = true;
 			resume();
 		}, temporaryResume);
 	}
 
+	function callLater(f:Void->Void)
+	{
+		_callLater.push(f);
+	}
+
 #if screenshot
 	function screenshot()
 	{
-		if (emu == null || !loaded) return;
+		if (plugin == null || !loaded) return;
 		temporaryPause();
-		var bmd = emu.capture();
+		var bmd = plugin.capture();
 		if (bmd == null) return;
 		var encoded:ByteArray = bmd.encode(bmd.rect, new flash.display.PNGEncoderOptions());
 		var path = "Screenshot " + Date.now().toString() + ".png";
@@ -264,9 +314,9 @@ class Shell extends Sprite
 
 	function reset()
 	{
-		if (emu == null || !loaded) return;
+		if (plugin == null || !loaded) return;
 		// TODO: confirm with dialog
-		emu.reset();
+		plugin.reset();
 		running = true;
 	}
 }

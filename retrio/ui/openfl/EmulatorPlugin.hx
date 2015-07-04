@@ -24,14 +24,22 @@ class EmulatorPlugin extends Sprite
 	public function frame() {}
 	public function resize(width:Int, height:Int) {}
 
-	public inline function loadGame(gameData:FileWrapper) emu.loadGame(gameData);
-	public inline function start()
+	public function loadGame(gameData:FileWrapper) emu.loadGame(gameData);
+	public function start()
 	{
 		running = true;
 	}
-	public inline function pause() running = false;
-	public inline function reset() emu.reset();
-	public inline function addController(c:IController, ?port:Int=null) return emu.addController(c, port);
+	public function pause() running = false;
+	public function reset() emu.reset();
+
+	public function close()
+	{
+		deactivate();
+		running = initialized = false;
+	}
+
+	public function activate() {}
+	public function deactivate() {}
 
 	public function saveState():String
 	{

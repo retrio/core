@@ -5,6 +5,9 @@ import haxe.io.Input;
 
 interface IEmulator
 {
+	// interface to provide file loading/saving capabilities
+	public var io:IEnvironment;
+
 	public var buffer:ByteString;
 	public var extensions:Array<String>;
 	public var width:Int;

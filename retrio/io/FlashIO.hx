@@ -1,14 +1,32 @@
-package retrio.ui.openfl;
+package retrio.io;
 
 import haxe.io.Bytes;
 import flash.events.Event;
 
 
-class FilePicker
+class FlashIO implements IEnvironment
 {
-	public static function openFile(extensions:Array<String>, onSuccess:FileWrapper->Void, ?onCancel:Void->Void)
+	public function new() {}
+
+	public function fileExists(name:String):Bool
 	{
-#if flash
+		// TODO
+		return false;
+	}
+
+	public function readFile(name:String, ?newRoot=false):FileWrapper
+	{
+		// TODO
+		return null;
+	}
+
+	public function writeFile(name:String, data:ByteString, ?append:Bool=false):Void
+	{
+		// TODO
+	}
+
+	public function openFileDialog(extensions:Array<String>, onSuccess:FileWrapper->Void, ?onCancel:Void->Void):Void
+	{
 		var fr = new flash.net.FileReference();
 		try
 		{
@@ -17,7 +35,7 @@ class FilePicker
 				fr.load();
 			});
 			fr.addEventListener(Event.COMPLETE, function(e:Dynamic) {
-				onSuccess(new FileWrapper(new haxe.io.BytesInput(Bytes.ofData(fr.data))));
+				onSuccess(new FileWrapper(new haxe.io.BytesInput(Bytes.ofData(fr.data)), fr.name));
 				fr.cancel();
 			});
 			fr.addEventListener(Event.CANCEL, function(e:Dynamic) {
@@ -25,19 +43,10 @@ class FilePicker
 			});
 		}
 		catch (e:Dynamic) {}
-#elseif sys
-		var filters = {count: 1, descriptions: ["ROM files"], extensions: [extensions.join(';')]};
-		var result:Array<String> = systools.Dialogs.openFile("Choose a ROM file.", "", filters);
-		if (result != null && result.length > 0)
-			onSuccess(FileWrapper.read(result[0]));
-		else
-			onCancel();
-#end
 	}
 
-	public static function saveFile(defaultName:String, onSuccess:String->Void)
+	public function saveFileDialog(defaultName:String, onSuccess:String->Void):Void
 	{
-#if flash
 		// TODO
 		/*var fr = new flash.net.FileReference();
 		try
@@ -52,10 +61,5 @@ class FilePicker
 			});
 		}
 		catch (e:Dynamic) {}*/
-#elseif sys
-		var result:String = systools.Dialogs.saveFile("Save file", "", "");
-		if (result != null)
-			onSuccess(result);
-#end
 	}
 }

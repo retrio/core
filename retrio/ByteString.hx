@@ -2,6 +2,7 @@ package retrio;
 
 import haxe.io.Bytes;
 import haxe.io.Input;
+import haxe.io.Output;
 
 
 #if flash
@@ -77,6 +78,15 @@ abstract ByteString(ContainerType)
 		return [for (i in this) Std.string(i)].join("");
 #else
 		return this.toString();
+#end
+	}
+
+	public inline function writeTo(out:Output):Void
+	{
+#if flash
+		for (i in 0 ... this.length) out.writeByte(this[i]);
+#else
+		out.writeBytes(this, 0, this.length);
 #end
 	}
 }
