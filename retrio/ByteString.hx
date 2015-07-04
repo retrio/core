@@ -72,7 +72,7 @@ abstract ByteString(ContainerType)
 #end
 	}
 
-	public inline function toString():String
+	@:to public inline function toString():String
 	{
 #if flash
 		return [for (i in this) Std.string(i)].join("");

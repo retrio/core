@@ -1,7 +1,12 @@
 package retrio.io;
 
+import haxe.ds.Vector;
 import haxe.io.Bytes;
+import haxe.io.BytesInput;
+import haxe.io.BytesOutput;
 import flash.events.Event;
+import flash.net.SharedObject;
+import flash.utils.ByteArray;
 
 
 class FlashIO implements IEnvironment
@@ -10,19 +15,43 @@ class FlashIO implements IEnvironment
 
 	public function fileExists(name:String):Bool
 	{
-		// TODO
-		return false;
+		var so = SharedObject.getLocal(name);
+		return Reflect.hasField(so.data, "data");
 	}
 
 	public function readFile(name:String, ?newRoot=false):FileWrapper
 	{
-		// TODO
-		return null;
+		var so = SharedObject.getLocal(name);
+		try
+		{
+			var f = new FileWrapper(new BytesInput(Bytes.ofData(so.data.data)));
+			return f;
+		}
+		catch (e:Dynamic)
+		{
+			return null;
+		}
 	}
 
-	public function writeFile(name:String, data:ByteString, ?append:Bool=false):Void
+	public function writeByteStringToFile(name:String, data:ByteString):Void
 	{
-		// TODO
+		var so = SharedObject.getLocal(name);
+		var out = new BytesOutput();
+		data.writeTo(out);
+		so.data.data = out.getBytes().getData();
+		so.flush();
+	}
+
+	public function writeVectorToFile(name:String, data:Vector<ByteString>):Void
+	{
+		var so = SharedObject.getLocal(name);
+		var out = new BytesOutput();
+		for (d in data)
+		{
+			d.writeTo(out);
+		}
+		so.data.data = out.getBytes().getData();
+		so.flush();
 	}
 
 	public function openFileDialog(extensions:Array<String>, onSuccess:FileWrapper->Void, ?onCancel:Void->Void):Void

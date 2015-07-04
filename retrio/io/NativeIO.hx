@@ -1,5 +1,6 @@
 package retrio.io;
 
+import haxe.ds.Vector;
 import haxe.io.Path;
 import sys.io.File;
 import sys.FileSystem;
@@ -27,13 +28,27 @@ class NativeIO implements IEnvironment
 		}
 		else path = pathTo(name);
 
-		return new FileWrapper(sys.io.File.read(path, true), path);
+		try
+		{
+			var f = new FileWrapper(sys.io.File.read(path, true), path);
+			return f;
+		}
+		catch (e:Dynamic)
+		{
+			return null;
+		}
 	}
 
-	public function writeFile(name:String, data:ByteString, ?append:Bool=false):Void
+	public function writeByteStringToFile(name:String, data:ByteString):Void
 	{
-		var out = append ? File.append(pathTo(name), true) : File.write(pathTo(name), true);
+		var out = File.write(pathTo(name), true);
 		data.writeTo(out);
+	}
+
+	public function writeVectorToFile(name:String, data:Vector<ByteString>):Void
+	{
+		var out = File.write(pathTo(name), true);
+		for (d in data) d.writeTo(out);
 	}
 
 	public function openFileDialog(extensions:Array<String>, onSuccess:FileWrapper->Void, ?onCancel:Void->Void):Void
