@@ -4,6 +4,7 @@ import haxe.xml.Fast;
 import sys.io.File;
 import sys.FileSystem;
 import retrio.FileWrapper;
+import retrio.io.IO;
 
 
 class Test
@@ -13,6 +14,8 @@ class Test
 
 	static function runTests(emu:IEmulator)
 	{
+		var io = IO.defaultIO;
+
 		var testData = File.getContent("tests.xml");
 		var fast = new Fast(Xml.parse(testData).firstElement());
 		var romDir = fast.has.dir ? fast.att.dir : "assets/roms/test/";
@@ -62,8 +65,8 @@ class Test
 			var hash = test.has.hash ? test.att.hash : null;
 			var expFrames = test.has.frames ? Std.parseInt(test.att.frames) : 0;
 
-			var f = FileWrapper.read(romDir + (StringTools.endsWith(romDir, "/") ? "" : "/") + rom);
-			emu.loadGame(f);
+			var f = io.readFile(romDir + (StringTools.endsWith(romDir, "/") ? "" : "/") + rom, true);
+			emu.loadGame(f, false);
 
 			Sys.println("\n>> Running test " + rom + (hash == null ? " (NO HASH)" : "") + "...");
 			var cycles = 0;

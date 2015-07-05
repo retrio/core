@@ -14,7 +14,7 @@ interface IEmulator
 	public var height:Int;
 
 	// load a game and start emulation
-	public function loadGame(gameData:FileWrapper):Void;
+	public function loadGame(gameData:FileWrapper, ?loadSram:Bool=true):Void;
 
 	// reset the currently running game
 	public function reset():Void;
