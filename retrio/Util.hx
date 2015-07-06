@@ -45,4 +45,12 @@ class Util
 	{
 		return _reversedBytes.get(b & 0xFF);
 	}
+
+	public static inline function lerp(a:Float, b:Float, i:Float):Float
+	{
+		var bottom:Int = Math.floor(i);
+		var top:Int = Math.ceil(i);
+		var t:Float = i - bottom;
+		return (1-t)*a + (t)*b;
+	}
 }

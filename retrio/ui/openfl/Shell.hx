@@ -6,7 +6,10 @@ import flash.display.Sprite;
 import flash.display.Bitmap;
 import flash.display.BitmapData;
 import flash.events.Event;
+import flash.events.SampleDataEvent;
 import flash.geom.Matrix;
+import flash.media.Sound;
+import flash.media.SoundChannel;
 import flash.utils.ByteArray;
 
 
@@ -46,6 +49,11 @@ class Shell extends Sprite
 	var _height:Int = 0;
 
 	var _callLater:Array<Void->Void> = new Array();
+
+	var sound:Sound;
+	var channel:SoundChannel;
+	var soundPlaying:Bool = false;
+	var _soundPos:Int = 0;
 
 	var speed(default, set):EmulationSpeed = Normal;
 	function set_speed(s:EmulationSpeed)
@@ -171,8 +179,6 @@ class Shell extends Sprite
 
 		_width = Std.int(_stage.stageWidth);
 		_height = Std.int(_stage.stageHeight - TOOLBAR_HEIGHT);
-
-		//_stage.onQuit = onQuit;
 	}
 
 	function onActivate(e:Dynamic)
@@ -277,6 +283,10 @@ class Shell extends Sprite
 	function loadRom()
 	{
 		if (plugin == null) return;
+
+		if (channel != null)
+			channel.stop();
+
 		temporaryPause();
 		io.openFileDialog(plugin.extensions, function(file:FileWrapper) {
 			plugin.loadGame(file);
@@ -284,6 +294,10 @@ class Shell extends Sprite
 			loaded = true;
 			resume();
 		}, temporaryResume);
+
+		sound = new Sound();
+		sound.addEventListener(SampleDataEvent.SAMPLE_DATA, getSamples);
+		channel = sound.play();
 	}
 
 	function callLater(f:Void->Void)
@@ -303,7 +317,7 @@ class Shell extends Sprite
 #if flash
 		var fr = new flash.net.FileReference();
 		fr.save(encoded, StringTools.replace(path, ':', ''));
-#elseif sys
+#else
 		var file = sys.io.File.write(path, true);
 		file.writeString(encoded.toString());
 		file.close();
@@ -318,5 +332,42 @@ class Shell extends Sprite
 		// TODO: confirm with dialog
 		plugin.reset();
 		running = true;
+	}
+
+	function getSamples(e:Dynamic)
+	{
+		if (plugin == null || !running)
+		{
+			// fill with empty data
+			var data = e.data;
+			for (i in 0 ... 0x800)
+			{
+				data.writeFloat(0);
+				data.writeFloat(0);
+			}
+		}
+		else
+		{
+			return plugin.getSamples(e);
+		}
+	}
+
+	function playSound()
+	{
+		if (!soundPlaying)
+		{
+			channel = sound.play(_soundPos);
+			soundPlaying = true;
+		}
+	}
+
+	function pauseSound()
+	{
+		if (soundPlaying)
+		{
+			_soundPos = Std.int(channel.position);
+			channel.stop();
+			soundPlaying = false;
+		}
 	}
 }
