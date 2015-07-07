@@ -10,6 +10,7 @@
 	<haxeflag name="--no-inline" if="profile"/>
 	<haxedef name="HXCPP_STACK_TRACE" if="profile"/>
 	<haxedef name="HXCPP_STACK_LINE" if="profile"/>
+	<haxedef name="lime-legacy" if="native"/>
 
 	<ndll name="systools" haxelib="systools" if="sys"/>
 </project>

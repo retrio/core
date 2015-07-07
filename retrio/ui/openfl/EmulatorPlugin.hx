@@ -79,4 +79,6 @@ class EmulatorPlugin extends Sprite
 			data.writeFloat(0);
 		}
 	}
+
+	public function setSpeed(speed:EmulationSpeed) {}
 }

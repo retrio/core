@@ -9,6 +9,6 @@ class IO
 #elseif flash
 		new FlashIO();
 #else
-		throw Exception("Unrecognized I/O environment");
+		throw "Unrecognized I/O environment";
 #end
 }

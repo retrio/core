@@ -69,6 +69,8 @@ class Shell extends Sprite
 			case Fast4x: 3;
 		}
 
+		plugin.setSpeed(s);
+
 		return speed = s;
 	}
 
@@ -172,13 +174,13 @@ class Shell extends Sprite
 		_stage.addEventListener(Event.ACTIVATE, onActivate);
 		_stage.addEventListener(Event.DEACTIVATE, onDeactivate);
 
+		_width = Std.int(_stage.stageWidth);
+		_height = Std.int(_stage.stageHeight - TOOLBAR_HEIGHT);
+
 		createToolbar();
 
 		var fps = new openfl.display.FPS(10, 10, 0x00ff00);
 		addChild(fps);
-
-		_width = Std.int(_stage.stageWidth);
-		_height = Std.int(_stage.stageHeight - TOOLBAR_HEIGHT);
 	}
 
 	function onActivate(e:Dynamic)
