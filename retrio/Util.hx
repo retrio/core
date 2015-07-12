@@ -53,4 +53,9 @@ class Util
 		var t:Float = i - bottom;
 		return (1-t)*a + (t)*b;
 	}
+
+	public static inline function clamp(n:Float, a:Float, b:Float):Float
+	{
+		return (n < a) ? a : ((n > b) ? b : n);
+	}
 }

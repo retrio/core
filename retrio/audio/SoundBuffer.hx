@@ -1,35 +1,34 @@
-package retrio;
+package retrio.audio;
 
 import haxe.ds.Vector;
 
 
 class SoundBuffer
 {
-	public var length:Int;
-	public var lastValue:Float;
+	public var length:Int = 0;
 
 	public var last(get, set):Float;
 	inline function get_last()
 	{
-		return get(length > 0 ? (length - 1) : 0);
+		return this.length == 0 ? 0 : get(this.length - 1);
 	}
-	inline function set_last(v:Float)
+	inline function set_last(v:Float):Float
 	{
-		return push(v);
+		return this.push(v);
 	}
 
 	var _data:Vector<Float>;
-	var start:Int;
+	var start:Int = 0;
 
 	public function new(length:Int)
 	{
 		_data = new Vector(length);
-		start = length = 0;
+		for (i in 0 ... length) _data[i] = 0;
 	}
 
 	@:arrayAccess public inline function get(i:Int):Float
 	{
-		return lastValue = _data[(start+i) % _data.length];
+		return _data[(start+i) % _data.length];
 	}
 
 	@:arrayAccess public inline function set(i:Int, v:Float):Float
