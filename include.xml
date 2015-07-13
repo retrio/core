@@ -4,7 +4,7 @@
 	<assets path="assets/fonts" rename="fonts" include="*.ttf" type="font" embed="true"/>
 	<haxedef name="analyzer"/>
 
-	<haxedef name="screenshot" if="flash || sys"/>
+	<haxedef name="screenshot" unless="js"/>
 
 	<haxeflag name="--no-inline" if="debug"/>
 	<haxeflag name="--no-inline" if="profile"/>
@@ -12,5 +12,7 @@
 	<haxedef name="HXCPP_STACK_LINE" if="profile"/>
 	<haxedef name="lime-legacy" if="native"/>
 
-	<ndll name="systools" haxelib="systools" if="sys"/>
+	<haxelib name="format"/>
+	<haxelib name="systools" if="native"/>
+	<haxelib name="openfl"/>
 </project>

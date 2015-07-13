@@ -65,7 +65,6 @@ class Shell extends Sprite
 		{
 			case Slow, Normal: 0;
 			case Fast2x: 1;
-			case Fast3x: 2;
 			case Fast4x: 3;
 		}
 
@@ -154,8 +153,6 @@ class Shell extends Sprite
 					plugin.frame();
 				case Fast2x:
 					@unroll for (i in 0 ... 2) plugin.frame();
-				case Fast3x:
-					@unroll for (i in 0 ... 3) plugin.frame();
 				case Fast4x:
 					@unroll for (i in 0 ... 4) plugin.frame();
 			}
@@ -218,15 +215,13 @@ class Shell extends Sprite
 		toolbar.addButton(new ToggleButton([
 				{img:"ff", tooltip:"Change Speed", clickHandler:changeSpeed},
 				{img:"ff2x", tooltip:"Change Speed", clickHandler:changeSpeed},
-				{img:"ff3x", tooltip:"Change Speed", clickHandler:changeSpeed},
 				{img:"ff4x", tooltip:"Change Speed", clickHandler:changeSpeed},
 				{img:"ff05x", tooltip:"Change Speed", clickHandler:changeSpeed},
 			], function() return switch (speed) {
 				case Normal: 0;
 				case Fast2x: 1;
-				case Fast3x: 2;
-				case Fast4x: 3;
-				case Slow: 4;
+				case Fast4x: 2;
+				case Slow: 3;
 		}));
 		toolbar.addButton(new ToolbarButton({img:"load", tooltip:"Load State", clickHandler:null}));
 		toolbar.addButton(new ToolbarButton({img:"save", tooltip:"Save State", clickHandler:null}));
@@ -275,8 +270,7 @@ class Shell extends Sprite
 		speed = switch(speed)
 		{
 			case Normal: Fast2x;
-			case Fast2x: Fast3x;
-			case Fast3x: Fast4x;
+			case Fast2x: Fast4x;
 			case Fast4x: Slow;
 			case Slow: Normal;
 		}
@@ -319,6 +313,7 @@ class Shell extends Sprite
 #if flash
 		var fr = new flash.net.FileReference();
 		fr.save(encoded, StringTools.replace(path, ':', ''));
+#elseif js
 #else
 		var file = sys.io.File.write(path, true);
 		file.writeString(encoded.toString());
