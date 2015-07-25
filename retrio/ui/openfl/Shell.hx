@@ -112,6 +112,16 @@ class Shell extends Sprite
 		this.plugin.loadGame(f);
 	}
 
+	public function initSound()
+	{
+		if (channel != null)
+			channel.stop();
+
+		sound = new Sound();
+		sound.addEventListener(SampleDataEvent.SAMPLE_DATA, getSamples);
+		channel = sound.play();
+	}
+
 	public function addController(c:IController, ?port:Int=null)
 	{
 		return plugin.emu.addController(c, port);
@@ -280,20 +290,14 @@ class Shell extends Sprite
 	{
 		if (plugin == null) return;
 
-		if (channel != null)
-			channel.stop();
-
 		temporaryPause();
 		io.openFileDialog(plugin.extensions, function(file:FileWrapper) {
 			plugin.loadGame(file);
 			plugin.start();
 			loaded = true;
+			initSound();
 			resume();
 		}, temporaryResume);
-
-		sound = new Sound();
-		sound.addEventListener(SampleDataEvent.SAMPLE_DATA, getSamples);
-		channel = sound.play();
 	}
 
 	function callLater(f:Void->Void)

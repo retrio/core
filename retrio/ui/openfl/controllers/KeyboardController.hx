@@ -29,7 +29,10 @@ class KeyboardController implements IController
 	{
 		var code = e.keyCode;
 		if (_keyMap.exists(code))
+		{
 			_pressed[_keyMap[code]] = true;
+			inputHandler(_keyMap[code]);
+		}
 	}
 
 	function onKeyUp(e:Dynamic)
@@ -48,4 +51,6 @@ class KeyboardController implements IController
 	{
 		return _pressed[b];
 	}
+
+	public dynamic function inputHandler(e:Dynamic):Void {};
 }
