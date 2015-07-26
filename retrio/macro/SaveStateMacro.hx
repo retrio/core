@@ -3,6 +3,7 @@ package retrio.macro;
 import haxe.macro.Expr;
 import haxe.macro.ExprTools;
 import haxe.macro.Context;
+import haxe.macro.Type;
 
 
 class SaveStateMacro
@@ -15,20 +16,39 @@ class SaveStateMacro
 	{
 		var buildFields = haxe.macro.Context.getBuildFields();
 
-		var saveStateFields = makeSaveState(buildFields);
-		var loadStateFields = makeLoadState(buildFields);
+		var cls:ClassType = Context.getLocalClass().get();
+		var overrides:Bool = false;
+		while (cls.superClass != null)
+		{
+			cls = cls.superClass.t.get();
+			for (i in cls.interfaces)
+			{
+				if (i.t.get().name == 'IState')
+				{
+					// parent class is an IState, so methods need to override
+					overrides = true;
+					break;
+				}
+			}
+		}
+
+		var saveStateFields = makeSaveState(buildFields, overrides);
+		var loadStateFields = makeLoadState(buildFields, overrides);
 
 		return buildFields.concat(saveStateFields).concat(loadStateFields);
 	}
 
-	static function makeSaveState(fields:Array<Field>):Array<Field>
+	static function makeSaveState(fields:Array<Field>, ?overrides:Bool=false):Array<Field>
 	{
 		var saveStateExprs:Array<Expr> = [];
-
 		var pos = Context.currentPos();
 
 		// initialize byte buffer
 		saveStateExprs.push(Context.parse("var state:haxe.io.BytesOutput = new haxe.io.BytesOutput()", pos));
+		if (overrides)
+		{
+			saveStateExprs.push(Context.parse("state.write(super.saveState())", pos));
+		}
 
 		// find all state fields and child objects
 		var children:Array<String> = [];
@@ -99,19 +119,25 @@ class SaveStateMacro
 			expr: {expr: EBlock(saveStateExprs), pos:pos},
 			ret: TPath({pack: ["retrio"], name: "SaveState"}),
 		};
+		var access = [APublic];
+		if (overrides) access.push(AOverride);
 		return [{
 			name: "saveState",
-			access: [APublic, AInline],
+			access: access,
 			kind: FFun(saveStateFunction),
 			pos: pos,
 		}];
 	}
 
-	static function makeLoadState(fields:Array<Field>):Array<Field>
+	static function makeLoadState(fields:Array<Field>, ?overrides:Bool=false):Array<Field>
 	{
 		var loadStateExprs:Array<Expr> = [];
-
 		var pos = Context.currentPos();
+
+		if (overrides)
+		{
+			loadStateExprs.push(Context.parse("super.loadState(input)", pos));
+		}
 
 		// find all state fields and child objects
 		var children:Array<String> = [];
@@ -127,21 +153,15 @@ class SaveStateMacro
 						switch (field.kind)
 						{
 							case FVar(t, e):
-#if debug
-								loadStateExprs.push(Context.parse("trace('" + field.name + "')", pos));
-#end
 								loadStateExprs.push(Context.parse(unserializeValue("input", field.name, t), pos));
 #if debug
-								loadStateExprs.push(Context.parse("trace(" + field.name + ")", pos));
+								loadStateExprs.push(Context.parse("trace('" + field.name + "', " + field.name + ")", pos));
 #end
 
 							case FProp(get, set, t, e):
-#if debug
-								loadStateExprs.push(Context.parse("trace('" + field.name + "')", pos));
-#end
 								loadStateExprs.push(Context.parse(unserializeValue("input", field.name, t), pos));
 #if debug
-								loadStateExprs.push(Context.parse("trace(" + field.name + ")", pos));
+								loadStateExprs.push(Context.parse("trace('" + field.name + "', " + field.name + ")", pos));
 #end
 
 							default:
@@ -185,9 +205,11 @@ class SaveStateMacro
 			expr: {expr: EBlock(loadStateExprs), pos:pos},
 			ret: null,
 		};
+		var access = [APublic];
+		if (overrides) access.push(AOverride);
 		return [{
 			name: "loadState",
-			access: [APublic, AInline],
+			access: access,
 			kind: FFun(loadStateFunction),
 			pos: pos,
 		}];
@@ -226,7 +248,7 @@ class SaveStateMacro
 
 			default:
 				// fall back to JSON
-				'$bufferName.writeString(haxe.Json.stringify(this.$fieldName))';
+				'{var json:String = haxe.Json.stringify(this.$fieldName); $bufferName.writeInt32(json.length); $bufferName.writeString(json);}';
 		}
 	}
 
@@ -263,7 +285,7 @@ class SaveStateMacro
 
 			default:
 				// fall back to JSON
-				'this.$fieldName = haxe.Json.parse($bufferName.readString())';
+				'{var length:Int = $bufferName.readInt32(); this.$fieldName = haxe.Json.parse($bufferName.readString(length));}';
 		}
 	}
 }
