@@ -1,6 +1,7 @@
 package retrio.io;
 
 import haxe.ds.Vector;
+import haxe.io.Bytes;
 import haxe.io.Path;
 
 
@@ -18,6 +19,11 @@ class Html5IO implements IEnvironment
 	public function readFile(name:String, ?newRoot=false):FileWrapper
 	{
 		return null;
+	}
+
+	public function writeBytesToFile(name:String, data:Bytes):Void
+	{
+
 	}
 
 	public function writeByteStringToFile(name:String, data:ByteString):Void

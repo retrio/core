@@ -233,8 +233,8 @@ class Shell extends Sprite
 				case Fast4x: 2;
 				case Slow: 3;
 		}));
-		toolbar.addButton(new ToolbarButton({img:"load", tooltip:"Load State", clickHandler:null}));
-		toolbar.addButton(new ToolbarButton({img:"save", tooltip:"Save State", clickHandler:null}));
+		toolbar.addButton(new ToolbarButton({img:"save", tooltip:"Save State", clickHandler:saveState}));
+		toolbar.addButton(new ToolbarButton({img:"load", tooltip:"Load State", clickHandler:loadState}));
 		toolbar.addButton(new ToolbarButton({img:"controller", tooltip:"Controls", clickHandler:null}));
 #if screenshot
 		toolbar.addButton(new ToolbarButton({img:"screenshot", tooltip:"Screenshot", clickHandler:screenshot}));
@@ -333,6 +333,26 @@ class Shell extends Sprite
 		// TODO: confirm with dialog
 		plugin.reset();
 		running = true;
+	}
+
+	function saveState()
+	{
+		if (plugin != null && plugin.emu != null && Std.is(plugin.emu, IState))
+		{
+			cast(plugin.emu, IEmulator).savePersistentState(1);
+		}
+	}
+
+	function loadState()
+	{
+		if (plugin != null && plugin.emu != null && Std.is(plugin.emu, IState))
+		{
+			try
+			{
+				cast(plugin.emu, IEmulator).loadPersistentState(1);
+			}
+			catch (e:Dynamic) {}
+		}
 	}
 
 	function getSamples(e:Dynamic)

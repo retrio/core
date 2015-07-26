@@ -33,25 +33,28 @@ class FlashIO implements IEnvironment
 		}
 	}
 
-	public function writeByteStringToFile(name:String, data:ByteString):Void
+	public function writeBytesToFile(name:String, data:Bytes):Void
 	{
 		var so = SharedObject.getLocal(name);
+		so.data.data = data.getData();
+		so.flush();
+	}
+
+	public function writeByteStringToFile(name:String, data:ByteString):Void
+	{
 		var out = new BytesOutput();
 		data.writeTo(out);
-		so.data.data = out.getBytes().getData();
-		so.flush();
+		writeBytesToFile(name, out.getBytes());
 	}
 
 	public function writeVectorToFile(name:String, data:Vector<ByteString>):Void
 	{
-		var so = SharedObject.getLocal(name);
 		var out = new BytesOutput();
 		for (d in data)
 		{
 			d.writeTo(out);
 		}
-		so.data.data = out.getBytes().getData();
-		so.flush();
+		writeBytesToFile(name, out.getBytes());
 	}
 
 	public function openFileDialog(extensions:Array<String>, onSuccess:FileWrapper->Void, ?onCancel:Void->Void):Void

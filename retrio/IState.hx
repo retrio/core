@@ -1,9 +1,11 @@
 package retrio;
 
-import haxe.io.Output;
+import haxe.io.BytesInput;
 
 
+@:autoBuild(retrio.macro.SaveStateMacro.build())
 interface IState
 {
-	public function writeState(out:Output):Void;
+	public function loadState(input:BytesInput):Void;
+	public function saveState():SaveState;
 }

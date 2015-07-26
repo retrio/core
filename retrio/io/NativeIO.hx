@@ -1,6 +1,7 @@
 package retrio.io;
 
 import haxe.ds.Vector;
+import haxe.io.Bytes;
 import haxe.io.Path;
 import sys.io.File;
 import sys.FileSystem;
@@ -17,7 +18,7 @@ class NativeIO implements IEnvironment
 		return FileSystem.exists(pathTo(name));
 	}
 
-	public function readFile(name:String, ?newRoot=false):FileWrapper
+	public function readFile(name:String, ?newRoot=false):Null<FileWrapper>
 	{
 		var path:String;
 
@@ -37,6 +38,12 @@ class NativeIO implements IEnvironment
 		{
 			return null;
 		}
+	}
+
+	public function writeBytesToFile(name:String, data:Bytes):Void
+	{
+		var out = File.write(pathTo(name), true);
+		out.write(data);
 	}
 
 	public function writeByteStringToFile(name:String, data:ByteString):Void

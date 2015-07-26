@@ -1,11 +1,13 @@
 package retrio;
 
 import haxe.ds.Vector;
+import haxe.io.Bytes;
 
 
 interface IEnvironment
 {
 	public function readFile(name:String, ?newRoot:Bool=false):FileWrapper;
+	public function writeBytesToFile(name:String, data:Bytes):Void;
 	public function writeByteStringToFile(name:String, data:ByteString):Void;
 	public function writeVectorToFile(name:String, data:Vector<ByteString>):Void;
 	public function fileExists(name:String):Bool;

@@ -16,6 +16,10 @@ interface IEmulator
 	// load a game and start emulation
 	public function loadGame(gameData:FileWrapper, ?loadSram:Bool=true):Void;
 
+	// persistent save states
+	public function savePersistentState(slot:SaveSlot):Void;
+	public function loadPersistentState(slot:SaveSlot):Void;
+
 	// reset the currently running game
 	public function reset():Void;
 
