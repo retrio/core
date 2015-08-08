@@ -1,15 +1,26 @@
 package retrio.ui.openfl;
 
 import flash.display.Sprite;
+import flash.display.DisplayObject;
 import flash.display.InteractiveObject;
 import flash.events.MouseEvent;
 
 
 class Toolbar extends Sprite
 {
+	public var buttons:Array<InteractiveObject>;
+
+	public var buttonWidth(get, never):Int;
+	function get_buttonWidth()
+	{
+		return Lambda.fold(buttons, function(btn, total) return Std.int(btn.width) + total, 0);
+	}
+
 	public function new()
 	{
 		super();
+
+		buttons = new Array();
 
 		mouseEnabled = mouseChildren = true;
 		useHandCursor = true;
@@ -33,9 +44,11 @@ class Toolbar extends Sprite
 		addChildAt(btn, 0);
 
 		var hint = cast(btn, IButton).hint;
-		hint.x = Std.int(Math.max(x + btn.x + btn.width/2 - hint.width/2, 0));
-		hint.y = Std.int(-hint.height/2);
 		addChild(hint);
+		hint.x = Std.int(Math.max(0, btn.x + btn.width - hint.width));
+		hint.y = Std.int(-hint.height/2);
+
+		buttons.push(btn);
 	}
 
 	public function onClick(e:Dynamic)

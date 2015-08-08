@@ -6,7 +6,7 @@ import haxe.io.Output;
 
 
 #if flash
-typedef ContainerType = haxe.ds.Vector<Int>;
+typedef ContainerType = haxe.ds.Vector<UInt>;
 #else
 typedef ContainerType = Bytes;
 #end
@@ -88,5 +88,10 @@ abstract ByteString(ContainerType)
 #else
 		out.writeBytes(this, 0, this.length);
 #end
+	}
+
+	public inline function toContainer():ContainerType
+	{
+		return this;
 	}
 }

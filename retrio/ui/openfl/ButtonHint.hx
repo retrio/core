@@ -16,23 +16,24 @@ class ButtonHint extends TextField
 	{
 		super();
 
-		text = txt;
-		visible = false;
-		autoSize = TextFieldAutoSize.CENTER;
-		mouseEnabled = false;
-		embedFonts = true;
-
 		if (fmt == null)
 		{
 			fmt = new TextFormat();
-			fmt.color = 0xffffff;
-			//fmt.bold = true;
-			fmt.size = 16;
+			fmt.color = 0xff0000;
+			fmt.size = 14;
 			fmt.align = TextFormatAlign.CENTER;
-			fmt.font = Assets.getFont("fonts/sigmarone.ttf").fontName;
+			fmt.font = Assets.getFont("fonts/archivo.otf").fontName;
 		}
-		setTextFormat(fmt);
+		defaultTextFormat = fmt;
 
-		//filters.push(new GlowFilter(0x000000,1.0,2.0,2.0,10));
+		text = txt;
+		background = true;
+		backgroundColor = 0x40a08080;
+		border = true;
+		borderColor = 0xa00000;
+		autoSize = TextFieldAutoSize.LEFT;
+		mouseEnabled = false;
+		embedFonts = true;
+		visible = false;
 	}
 }

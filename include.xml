@@ -15,5 +15,5 @@
 	<haxelib name="openfl"/>
 
 	<assets path="assets/graphics" rename="graphics" include="*.png" type="image" embed="true"/>
-	<assets path="assets/fonts" rename="fonts" include="*.ttf" type="font" embed="true"/>
+	<assets path="assets/fonts" rename="fonts" include="*.ttf|*.otf" type="font" embed="true"/>
 </project>

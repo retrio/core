@@ -2,9 +2,10 @@ package retrio.ui.openfl;
 
 import haxe.io.Bytes;
 import flash.Lib;
-import flash.display.Sprite;
 import flash.display.Bitmap;
 import flash.display.BitmapData;
+import flash.display.Sprite;
+import flash.display.StageDisplayState;
 import flash.events.Event;
 import flash.events.SampleDataEvent;
 import flash.geom.Matrix;
@@ -16,6 +17,8 @@ import flash.utils.ByteArray;
 @:build(retrio.macro.Optimizer.build())
 class Shell extends Sprite
 {
+	static inline var MAX_WIDTH:Int = 1024;
+	static inline var MAX_HEIGHT:Int = 768;
 	static inline var TOOLBAR_HEIGHT:Int = 48;
 
 	static var _plugins:Map<String, EmulatorPlugin> = new Map();
@@ -97,14 +100,12 @@ class Shell extends Sprite
 		}
 
 		this.plugin = _plugins[name];
-		this.plugin.resize(_width, _height);
+		onResize(null);
 		addChildAt(this.plugin, 0);
 
 		this.plugin.emu.io = io;
 
 		this.plugin.activate();
-
-		//speed = Fast;
 	}
 
 	public function loadGame(f:FileWrapper)
@@ -120,6 +121,7 @@ class Shell extends Sprite
 		sound = new Sound();
 		sound.addEventListener(SampleDataEvent.SAMPLE_DATA, getSamples);
 		channel = sound.play();
+		soundPlaying = true;
 	}
 
 	public function addController(c:IController, ?port:Int=null)
@@ -134,11 +136,20 @@ class Shell extends Sprite
 
 		if (_width == 0 || _height == 0) return;
 
-		if (plugin != null)
+		if (plugin != null && plugin.emu != null)
 		{
-			plugin.resize(_width, _height);
+			var w = plugin.emu.width, h = plugin.emu.height;
+			var ratio:Int = Std.int(Math.max(1,
+				Math.min(Math.min(MAX_WIDTH, _width) / w,
+				Math.min(MAX_HEIGHT, _height) / h)));
+			var occupiedWidth:Int = Std.int(w * ratio);
+			var occupiedHeight:Int = Std.int(h * ratio);
+			plugin.resize(occupiedWidth, occupiedHeight);
+			plugin.x = Std.int((_width - w * ratio) / 2);
+			plugin.y = Std.int((_height - h * ratio) / 2);
 		}
 
+		toolbar.x = Std.int(Math.max((_width - toolbar.buttonWidth)/2, 1));
 		toolbar.y = _height;
 	}
 
@@ -223,10 +234,10 @@ class Shell extends Sprite
 			{img:"pause", tooltip:"Pause", clickHandler:pause},
 		], function() return (plugin != null && running) ? 1 : 0));
 		toolbar.addButton(new ToggleButton([
-				{img:"ff", tooltip:"Change Speed", clickHandler:changeSpeed},
-				{img:"ff2x", tooltip:"Change Speed", clickHandler:changeSpeed},
-				{img:"ff4x", tooltip:"Change Speed", clickHandler:changeSpeed},
-				{img:"ff05x", tooltip:"Change Speed", clickHandler:changeSpeed},
+				{img:"ff", tooltip:"Speed", clickHandler:changeSpeed},
+				{img:"ff2x", tooltip:"Speed", clickHandler:changeSpeed},
+				{img:"ff4x", tooltip:"Speed", clickHandler:changeSpeed},
+				{img:"ff05x", tooltip:"Speed", clickHandler:changeSpeed},
 			], function() return switch (speed) {
 				case Normal: 0;
 				case Fast2x: 1;
@@ -235,11 +246,15 @@ class Shell extends Sprite
 		}));
 		toolbar.addButton(new ToolbarButton({img:"save", tooltip:"Save State", clickHandler:saveState}));
 		toolbar.addButton(new ToolbarButton({img:"load", tooltip:"Load State", clickHandler:loadState}));
-		toolbar.addButton(new ToolbarButton({img:"controller", tooltip:"Controls", clickHandler:null}));
 #if screenshot
 		toolbar.addButton(new ToolbarButton({img:"screenshot", tooltip:"Screenshot", clickHandler:screenshot}));
 #end
+		toolbar.addButton(new ToggleButton([
+			{img:"mute", tooltip:"Unmute", clickHandler:playSound},
+			{img:"sound", tooltip:"Mute", clickHandler:pauseSound},
+		], function() return (soundPlaying) ? 1 : 0));
 		toolbar.addButton(new ToolbarButton({img:"settings", tooltip:"Settings", clickHandler:null}));
+		toolbar.addButton(new ToolbarButton({img:"fullscreen", tooltip:"Fullscreen", clickHandler:toggleFullScreen}));
 	}
 
 	function unloadPlugin()
@@ -375,7 +390,7 @@ class Shell extends Sprite
 
 	function playSound()
 	{
-		if (!soundPlaying)
+		if (!soundPlaying && sound != null)
 		{
 			channel = sound.play(_soundPos);
 			soundPlaying = true;
@@ -390,5 +405,10 @@ class Shell extends Sprite
 			channel.stop();
 			soundPlaying = false;
 		}
+	}
+
+	function toggleFullScreen()
+	{
+		_stage.displayState = _stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE ? StageDisplayState.NORMAL : StageDisplayState.FULL_SCREEN_INTERACTIVE;
 	}
 }

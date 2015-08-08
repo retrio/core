@@ -44,14 +44,12 @@ class ToolbarButton extends Sprite implements IButton
 
 	public function onMouseOver(e:Dynamic)
 	{
-		// TODO: show tooltip
 		bmp.bitmapData = btn.getImage(true);
 		hint.visible = true;
 	}
 
 	public function onMouseOut(e:Dynamic)
 	{
-		// TODO: hide tooltip
 		bmp.bitmapData = btn.getImage();
 		hint.visible = false;
 	}

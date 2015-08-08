@@ -52,6 +52,7 @@ class SaveStateMacro
 
 		// find all state fields and child objects
 		var children:Array<String> = [];
+		var stateVersion:Int = 0;
 		for (field in fields)
 		{
 			if (Reflect.hasField(field, 'meta'))
@@ -96,6 +97,24 @@ class SaveStateMacro
 								}
 							default:
 								throw "@:stateChildren should be used on a constant variable expression";
+						}
+					}
+					else if (meta.name == ':stateVersion')
+					{
+						switch (field.kind)
+						{
+							case FVar(t, e):
+								try
+								{
+									stateVersion = cast ExprTools.getValue(e);
+									saveStateExprs.push(Context.parse('state.writeInt32($stateVersion)', pos));
+								}
+								catch (e:Dynamic)
+								{
+									throw "Couldn't evaluate @:stateVersion at compile time";
+								}
+							default:
+								throw "@:stateVersion should be used on a constant variable expression";
 						}
 					}
 				}
@@ -141,6 +160,7 @@ class SaveStateMacro
 
 		// find all state fields and child objects
 		var children:Array<String> = [];
+		var stateVersion:Int = 0;
 		for (field in fields)
 		{
 			if (Reflect.hasField(field, 'meta'))
@@ -187,6 +207,24 @@ class SaveStateMacro
 								throw "@:stateChildren should be used on a constant variable expression";
 						}
 					}
+					else if (meta.name == ':stateVersion')
+					{
+						switch (field.kind)
+						{
+							case FVar(t, e):
+								try
+								{
+									stateVersion = cast ExprTools.getValue(e);
+									loadStateExprs.push(Context.parse('var version = input.readInt32()', pos));
+								}
+								catch (e:Dynamic)
+								{
+									throw "Couldn't evaluate @:stateVersion at compile time";
+								}
+							default:
+								throw "@:stateVersion should be used on a constant variable expression";
+						}
+					}
 				}
 			}
 		}
@@ -221,6 +259,9 @@ class SaveStateMacro
 		{
 			case TPath({name:"Byte"}):
 				'$bufferName.writeByte(this.$fieldName)';
+
+			case TPath({name:"Short"}):
+				'$bufferName.writeInt16(this.$fieldName)';
 
 			case TPath({name:"Int"}):
 				'$bufferName.writeInt32(this.$fieldName)';
@@ -258,6 +299,9 @@ class SaveStateMacro
 		{
 			case TPath({name:"Byte"}):
 				'this.$fieldName = $bufferName.readByte()';
+
+			case TPath({name:"Short"}):
+				'this.$fieldName = $bufferName.readInt16()';
 
 			case TPath({name:"Int"}):
 				'this.$fieldName = $bufferName.readInt32()';

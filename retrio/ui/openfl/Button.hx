@@ -17,20 +17,20 @@ class Button
 
 	public function new(def:ButtonDef)
 	{
-		img = Assets.getBitmapData("graphics/" + def.img + ".png", false);
+		img = Assets.getBitmapData("graphics/" + def.img + ".png");
 		this.tooltip = def.tooltip;
 		this.clickHandler = def.clickHandler;
 
 		var hoverImg = "graphics/" + def.img + "-hover.png";
 		if (Assets.exists(hoverImg, AssetType.IMAGE))
 		{
-			imgHover = Assets.getBitmapData(hoverImg, false);
+			imgHover = Assets.getBitmapData(hoverImg);
 		}
 
 		var clickImg = "graphics/" + def.img + "-click.png";
 		if (Assets.exists(clickImg, AssetType.IMAGE))
 		{
-			imgClick = Assets.getBitmapData(clickImg, false);
+			imgClick = Assets.getBitmapData(clickImg);
 		}
 	}
 

@@ -144,6 +144,21 @@ class Optimizer
 	}
 
 	/**
+	 * Substitute all occurrences of expr `expr1` with expr `expr2`.
+	 */
+	public static function substitute(expr:Expr, expr1:ExprDef, expr2:ExprDef):Expr
+	{
+		if (expr.expr == expr1)
+		{
+			return {expr: expr2, pos: expr.pos};
+		}
+		else
+		{
+			return ExprTools.map(expr, function(e) return substitute(e, expr1, expr2));
+		}
+	}
+
+	/**
 	 * Substitute all occurrences of variable `varName` with constant `value`.
 	 */
 	public static function substituteVariable(expr:Expr, varName:String, value:Expr)

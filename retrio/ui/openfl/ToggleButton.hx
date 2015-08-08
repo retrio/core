@@ -19,14 +19,22 @@ class ToggleButton extends Sprite implements IButton
 	var mode(default, set):Int = 0;
 	function set_mode(m:Int)
 	{
-		bmp.bitmapData = btns[m].getImage(hover, click);
-		hint.text = btns[m].tooltip;
+		if (mode != m || hover != _lastHover || click != _lastClick)
+		{
+			bmp.bitmapData = btns[m].getImage(hover, click);
+			hint.text = btns[m].tooltip;
+			_lastHover = hover;
+			_lastClick = click;
+		}
 		return mode = m;
 	}
 	var modeFunction:Void->Int;
 
 	var hover:Bool = false;
 	var click:Bool = false;
+
+	var _lastHover:Bool = false;
+	var _lastClick:Bool = false;
 
 	function new(defs:Array<ButtonDef>, modeFunction:Void->Int)
 	{
@@ -70,7 +78,6 @@ class ToggleButton extends Sprite implements IButton
 
 	public function onMouseOver(e:Dynamic)
 	{
-		// TODO: show tooltip
 		hover = true;
 		click = false;
 		mode = mode;
@@ -80,7 +87,6 @@ class ToggleButton extends Sprite implements IButton
 
 	public function onMouseOut(e:Dynamic)
 	{
-		// TODO: hide tooltip
 		hover = false;
 		click = false;
 		mode = mode;
