@@ -5,7 +5,7 @@ import flash.display.BitmapData;
 import flash.display.Sprite;
 
 
-class EmulatorPlugin extends Sprite
+class EmulatorPlugin extends Sprite implements ISettingsHandler
 {
 	public var running:Bool = false;
 	public var initialized:Bool = false;
@@ -13,8 +13,15 @@ class EmulatorPlugin extends Sprite
 	public var emu:IEmulator;
 	public var frameSkip:Int = 0;
 	public var extensions:Array<String>;
+	public var settings:Array<SettingCategory>;
 
-	// this is an abstract class
+	var volume:Float = 1;
+	var smooth:Bool = false;
+
+	var _time:Float = 0;
+	var frameRate:Float = 60;
+
+// this is an abstract class
 	function new()
 	{
 		super();
@@ -22,7 +29,15 @@ class EmulatorPlugin extends Sprite
 		mouseEnabled = mouseChildren = false;
 	}
 
-	public function frame() {}
+	public function frame()
+	{
+		var _newTime = haxe.Timer.stamp();
+		var elapsed = _newTime - _time;
+		_time = _newTime;
+		frameRate = 1/elapsed;
+		if (frameRate < 1) frameRate = 60;
+	}
+
 	public function resize(width:Int, height:Int) {}
 
 	public function loadGame(gameData:FileWrapper) emu.loadGame(gameData);
@@ -64,7 +79,9 @@ class EmulatorPlugin extends Sprite
 
 	public function loadState(state:IEmulator)
 	{
+		deactivate();
 		emu = state;
+		activate();
 	}
 
 	public function capture():Null<BitmapData> return null;
@@ -81,4 +98,33 @@ class EmulatorPlugin extends Sprite
 	}
 
 	public function setSpeed(speed:EmulationSpeed) {}
+
+	public function setSetting(name:String, value:Dynamic):Void
+	{
+		switch (name)
+		{
+			case GlobalSettings.Volume:
+				volume = cast(value, Int) / 100;
+
+			case GlobalSettings.FrameSkip:
+				frameSkip = cast(value, Int);
+
+			case GlobalSettings.Smooth:
+				smooth = cast(value, Bool);
+
+			default: {}
+		}
+	}
+
+	public function loadSettings(?settings:Array<SettingCategory>)
+	{
+		if (settings == null) settings = this.settings;
+		for (page in settings)
+		{
+			for (setting in page.settings)
+			{
+				setSetting(setting.name, setting.value);
+			}
+		}
+	}
 }

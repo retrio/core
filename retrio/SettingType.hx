@@ -3,12 +3,10 @@ package retrio;
 
 enum SettingType
 {
-	Bool;
-	Integer(min:Int, max:Int);
-	Float(min:Float, max:Float);
-	String(?maxLength:Int);
-	Option(options:Array<Dynamic>);
-	Custom(settingInfo:Dynamic);
-
-	Section(name:String, settings:Array<Setting>)
+	BoolValue;
+	IntValue(min:Int, max:Int);
+	StringValue(maxLength:Int);
+	Options(options:Array<String>);
+	//Custom(settingInfo:Dynamic);
+	//Section(name:String, settings:Array<Setting>);
 }

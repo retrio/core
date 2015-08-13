@@ -12,6 +12,7 @@ import flash.geom.Matrix;
 import flash.media.Sound;
 import flash.media.SoundChannel;
 import flash.utils.ByteArray;
+import haxe.ui.toolkit.core.Toolkit;
 
 
 @:build(retrio.macro.Optimizer.build())
@@ -42,7 +43,8 @@ class Shell extends Sprite
 
 	var loaded:Bool = false;
 	var running:Bool = false;
-	var _running:Bool = true;
+
+	var runningStack:Array<Bool> = new Array();
 
 	var _m:Matrix;
 	var _pixels:ByteArray = new ByteArray();
@@ -87,6 +89,8 @@ class Shell extends Sprite
 
 		if (_stage != null) onStage(null);
 		else Lib.current.addEventListener(Event.ADDED_TO_STAGE, onStage);
+
+		Toolkit.init();
 	}
 
 	public function loadPlugin(name:String)
@@ -94,23 +98,23 @@ class Shell extends Sprite
 		if (!_plugins.exists(name))
 			throw "Unrecognized plugin: " + name;
 
-		if (this.plugin != null)
+		if (plugin != null)
 		{
 			unloadPlugin();
 		}
 
-		this.plugin = _plugins[name];
+		plugin = _plugins[name];
 		onResize(null);
-		addChildAt(this.plugin, 0);
+		addChildAt(plugin, 0);
 
-		this.plugin.emu.io = io;
-
-		this.plugin.activate();
+		plugin.emu.io = io;
+		plugin.activate();
+		plugin.loadSettings();
 	}
 
 	public function loadGame(f:FileWrapper)
 	{
-		this.plugin.loadGame(f);
+		plugin.loadGame(f);
 	}
 
 	public function initSound()
@@ -253,7 +257,7 @@ class Shell extends Sprite
 			{img:"mute", tooltip:"Unmute", clickHandler:playSound},
 			{img:"sound", tooltip:"Mute", clickHandler:pauseSound},
 		], function() return (soundPlaying) ? 1 : 0));
-		toolbar.addButton(new ToolbarButton({img:"settings", tooltip:"Settings", clickHandler:null}));
+		toolbar.addButton(new ToolbarButton({img:"settings", tooltip:"Settings", clickHandler:toggleSettings}));
 		toolbar.addButton(new ToolbarButton({img:"fullscreen", tooltip:"Fullscreen", clickHandler:toggleFullScreen}));
 	}
 
@@ -281,13 +285,14 @@ class Shell extends Sprite
 
 	function temporaryPause()
 	{
-		_running = loaded ? running : true;
+		runningStack.push(running);
 		running = false;
 	}
 
 	function temporaryResume()
 	{
-		running = _running;
+		var r:Null<Bool> = runningStack.pop();
+		running = r == null ? true : r;
 	}
 
 	function changeSpeed()
@@ -365,6 +370,7 @@ class Shell extends Sprite
 			try
 			{
 				cast(plugin.emu, IEmulator).loadPersistentState(1);
+				plugin.loadSettings();
 			}
 			catch (e:Dynamic) {}
 		}
@@ -410,5 +416,11 @@ class Shell extends Sprite
 	function toggleFullScreen()
 	{
 		_stage.displayState = _stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE ? StageDisplayState.NORMAL : StageDisplayState.FULL_SCREEN_INTERACTIVE;
+	}
+
+	function toggleSettings()
+	{
+		temporaryPause();
+		retrio.ui.haxeui.SettingsPage.show(plugin.settings, plugin, temporaryResume);
 	}
 }

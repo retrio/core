@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <project>
-	<haxedef name="analyzer"/>
+	<!--haxedef name="analyzer"/-->
 
 	<haxedef name="screenshot" unless="js"/>
 
@@ -9,10 +9,13 @@
 	<haxedef name="HXCPP_STACK_TRACE" if="profile"/>
 	<haxedef name="HXCPP_STACK_LINE" if="profile"/>
 	<haxedef name="lime-legacy" if="native"/>
+    <haxedef name="haxeui-no-gif-support"/>
 
 	<haxelib name="format"/>
 	<haxelib name="systools" if="native"/>
 	<haxelib name="openfl"/>
+	<haxelib name="hscript"/>
+	<haxelib name="haxeui"/>
 
 	<assets path="assets/graphics" rename="graphics" include="*.png" type="image" embed="true"/>
 	<assets path="assets/fonts" rename="fonts" include="*.ttf|*.otf" type="font" embed="true"/>

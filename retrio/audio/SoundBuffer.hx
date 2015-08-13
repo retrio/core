@@ -56,4 +56,9 @@ class SoundBuffer
 		var t:Float = i - bottom;
 		return (1-t)*get(bottom) + (t)*get(top);
 	}
+
+	public inline function clear()
+	{
+		start = length = 0;
+	}
 }

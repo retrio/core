@@ -12,6 +12,7 @@ interface IEmulator
 	public var extensions:Array<String>;
 	public var width:Int;
 	public var height:Int;
+	public var settings:Array<SettingCategory>;
 
 	// load a game and start emulation
 	public function loadGame(gameData:FileWrapper, ?loadSram:Bool=true):Void;
@@ -27,7 +28,7 @@ interface IEmulator
 	public function addController(c:IController, ?port:Int=null):Null<Int>;
 
 	// called once per frame
-	public function frame():Void;
+	public function frame(rate:Float):Void;
 
 	public function getColor(c:Int):Int;
 }
