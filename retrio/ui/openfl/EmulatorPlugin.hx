@@ -3,6 +3,7 @@ package retrio.ui.openfl;
 import haxe.Serializer;
 import flash.display.BitmapData;
 import flash.display.Sprite;
+import openfl.display.FPS;
 
 
 class EmulatorPlugin extends Sprite implements ISettingsHandler
@@ -21,12 +22,17 @@ class EmulatorPlugin extends Sprite implements ISettingsHandler
 	var _time:Float = 0;
 	var frameRate:Float = 60;
 
-// this is an abstract class
+	var fps:FPS;
+
+	// this is an abstract class
 	function new()
 	{
 		super();
 
 		mouseEnabled = mouseChildren = false;
+
+		fps = new FPS(10, 10, 0x00ff00);
+		addChild(fps);
 	}
 
 	public function frame()
@@ -106,11 +112,14 @@ class EmulatorPlugin extends Sprite implements ISettingsHandler
 			case GlobalSettings.Volume:
 				volume = cast(value, Int) / 100;
 
+			case GlobalSettings.Smooth:
+				smooth = cast(value, Bool);
+
 			case GlobalSettings.FrameSkip:
 				frameSkip = cast(value, Int);
 
-			case GlobalSettings.Smooth:
-				smooth = cast(value, Bool);
+			case GlobalSettings.ShowFPS:
+				fps.visible = cast(value, Bool);
 
 			default: {}
 		}

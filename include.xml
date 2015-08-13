@@ -9,7 +9,8 @@
 	<haxedef name="HXCPP_STACK_TRACE" if="profile"/>
 	<haxedef name="HXCPP_STACK_LINE" if="profile"/>
 	<haxedef name="lime-legacy" if="native"/>
-    <haxedef name="haxeui-no-gif-support"/>
+	<haxedef name="haxeui-no-gif-support"/>
+	<haxedef name="haxeui-embed-resources"/>
 
 	<haxelib name="format"/>
 	<haxelib name="systools" if="native"/>

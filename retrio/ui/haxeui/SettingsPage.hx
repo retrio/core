@@ -24,7 +24,7 @@ class SettingsPage
 {
 	public static function show(settings:Array<SettingCategory>, handler:ISettingsHandler, ?finishedCallback:Void->Void)
 	{
-		Toolkit.theme = new GradientTheme();
+		//Toolkit.theme = new GradientTheme();
 		Toolkit.init();
 
 		Toolkit.openPopup({percentWidth:90, percentHeight:90}, function(root:Root) {
@@ -69,9 +69,18 @@ class SettingsPage
 		grid.style.percentWidth = 100;
 		grid.style.percentHeight = 100;
 
-		for (control in page.settings)
+		if (page.settings.length > 0)
 		{
-			addSettingControl(control, grid);
+			for (control in page.settings)
+			{
+				addSettingControl(control, grid);
+			}
+		}
+		else
+		{
+			var label = new Text();
+			label.text = "(no settings)";
+			grid.addChild(label);
 		}
 
 		parent.addChild(grid);

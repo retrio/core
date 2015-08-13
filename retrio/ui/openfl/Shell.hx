@@ -200,9 +200,6 @@ class Shell extends Sprite
 		_height = Std.int(_stage.stageHeight - TOOLBAR_HEIGHT);
 
 		createToolbar();
-
-		var fps = new openfl.display.FPS(10, 10, 0x00ff00);
-		addChild(fps);
 	}
 
 	function onActivate(e:Dynamic)
