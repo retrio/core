@@ -3,5 +3,6 @@ package retrio;
 
 typedef SettingCategory = {
 	var name:String;
-	var settings:Array<Setting>;
+	@:optional var settings:Array<Setting>;
+	@:optional var custom:CustomSetting;
 }

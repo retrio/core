@@ -1,6 +1,7 @@
 package retrio;
 
 import haxe.io.Input;
+import haxe.ds.Vector;
 
 
 interface IEmulator
@@ -12,7 +13,7 @@ interface IEmulator
 	public var extensions:Array<String>;
 	public var width:Int;
 	public var height:Int;
-	public var settings:Array<SettingCategory>;
+	public var maxControllers:Int;
 
 	// load a game and start emulation
 	public function loadGame(gameData:FileWrapper, ?loadSram:Bool=true):Void;
@@ -24,8 +25,9 @@ interface IEmulator
 	// reset the currently running game
 	public function reset():Void;
 
-	// add a new controller to a specific port or the first empty port
-	public function addController(c:IController, ?port:Int=null):Null<Int>;
+	// add/remove input devices
+	public function addController(c:IController, port:Int):Void;
+	public function removeController(port:Int):Void;
 
 	// called once per frame
 	public function frame(rate:Float):Void;

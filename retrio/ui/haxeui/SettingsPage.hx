@@ -18,6 +18,7 @@ import haxe.ui.toolkit.containers.TabView;
 import haxe.ui.toolkit.containers.HBox;
 import haxe.ui.toolkit.containers.VBox;
 import haxe.ui.toolkit.containers.Grid;
+import haxe.ui.toolkit.containers.Absolute;
 
 
 class SettingsPage
@@ -27,26 +28,28 @@ class SettingsPage
 		//Toolkit.theme = new GradientTheme();
 		Toolkit.init();
 
-		Toolkit.openPopup({percentWidth:90, percentHeight:90}, function(root:Root) {
-			var box = new VBox();
-			box.style.padding = 16;
-			box.style.percentWidth = 100;
-			box.style.percentHeight = 100;
+		Toolkit.openPopup({x:0, y:0, percentWidth:100, percentHeight:100, styleName:'popup'}, function(root:Root) {
+			var abs = new Absolute();
+			abs.style.autoSize = false;
+
+			root.onResize = abs.onReady = function(e) {
+				abs.width = Std.int(Math.min(root.width * 0.90, 800));
+				abs.height = Std.int(Math.min(root.height * 0.90, 600));
+				abs.x = (root.width - abs.width) / 2;
+				abs.y = (root.height - abs.height) / 2;
+			}
 
 			var tabs = new TabView();
 			tabs.style.percentWidth = 100;
 			tabs.style.percentHeight = 100;
+			tabs.style.padding = 8;
 
 			for (page in settings)
 			{
 				addSettingPage(page, tabs);
 			}
 
-			box.addChild(tabs);
-
-			var spacer = new Spacer();
-			spacer.height = 32;
-			box.addChild(spacer);
+			abs.addChild(tabs);
 
 			var btn = new Button();
 			btn.text = "Close";
@@ -56,9 +59,13 @@ class SettingsPage
 				if (finishedCallback != null)
 					finishedCallback();
 			}
-			box.addChild(btn);
+			abs.onResize = btn.onReady = btn.onChange = function(e) {
+				btn.x = 8;
+				btn.y = abs.height - btn.height - 8;
+			}
+			abs.addChild(btn);
 
-			root.addChild(box);
+			root.addChild(abs);
 		});
 	}
 
@@ -69,12 +76,16 @@ class SettingsPage
 		grid.style.percentWidth = 100;
 		grid.style.percentHeight = 100;
 
-		if (page.settings.length > 0)
+		if (page.settings != null && page.settings.length > 0)
 		{
 			for (control in page.settings)
 			{
 				addSettingControl(control, grid);
 			}
+		}
+		else if (page.custom != null && page.custom.render != null)
+		{
+			page.custom.render(grid);
 		}
 		else
 		{
@@ -161,7 +172,6 @@ class SettingsPage
 	{
 		var list = new ListSelector();
 		list.text = Std.string(setting.value);
-		list.method = "default";
 		list.style.percentWidth = 80;
 
 		var optionString = options.join(',');
@@ -169,6 +179,9 @@ class SettingsPage
 		data.createFromString(optionString);
 		list.dataSource = data;
 
+		list.onReady = function(e) {
+			list.method = 'default';
+		}
 		list.onChange = function(e) {
 			setting.value = list.text;
 		}

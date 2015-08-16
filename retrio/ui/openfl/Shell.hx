@@ -128,9 +128,9 @@ class Shell extends Sprite
 		soundPlaying = true;
 	}
 
-	public function addController(c:IController, ?port:Int=null)
+	public function addController(c:IController, port:Int)
 	{
-		return plugin.emu.addController(c, port);
+		return plugin.addController(c, port);
 	}
 
 	public function onResize(e:Event)
@@ -189,7 +189,7 @@ class Shell extends Sprite
 		if (e != null) Lib.current.removeEventListener(Event.ADDED_TO_STAGE, onStage);
 
 		var _stage = this._stage;
-		_stage.quality = flash.display.StageQuality.LOW;
+		_stage.quality = flash.display.StageQuality.HIGH;
 		_stage.addChild(this);
 		_stage.addEventListener(Event.ENTER_FRAME, update);
 		_stage.addEventListener(Event.RESIZE, onResize);
@@ -205,14 +205,14 @@ class Shell extends Sprite
 	function onActivate(e:Dynamic)
 	{
 		if (plugin == null || !loaded) return;
-		temporaryResume();
+		if (e != null) temporaryResume();
 		plugin.activate();
 	}
 
 	function onDeactivate(e:Dynamic)
 	{
 		if (plugin == null || !loaded) return;
-		temporaryPause();
+		if (e != null) temporaryPause();
 		plugin.deactivate();
 	}
 
@@ -284,12 +284,14 @@ class Shell extends Sprite
 	{
 		runningStack.push(running);
 		running = false;
+		onDeactivate(null);
 	}
 
 	function temporaryResume()
 	{
 		var r:Null<Bool> = runningStack.pop();
 		running = r == null ? true : r;
+		if (running) onActivate(null);
 	}
 
 	function changeSpeed()
@@ -415,9 +417,15 @@ class Shell extends Sprite
 		_stage.displayState = _stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE ? StageDisplayState.NORMAL : StageDisplayState.FULL_SCREEN_INTERACTIVE;
 	}
 
+	var _settingsShown:Bool = false;
 	function toggleSettings()
 	{
-		temporaryPause();
-		retrio.ui.haxeui.SettingsPage.show(plugin.settings, plugin, temporaryResume);
+		if (!_settingsShown)
+		{
+			temporaryPause();
+			_settingsShown = true;
+			toolbar.enabled = false;
+			retrio.ui.haxeui.SettingsPage.show(plugin.settings, plugin, function() { _settingsShown = false; toolbar.enabled = true; temporaryResume(); });
+		}
 	}
 }

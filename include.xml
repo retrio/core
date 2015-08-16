@@ -2,6 +2,8 @@
 <project>
 	<!--haxedef name="analyzer"/-->
 
+    <window antialiasing="4"/>
+
 	<haxedef name="screenshot" unless="js"/>
 
 	<haxeflag name="--no-inline" if="debug"/>

@@ -16,13 +16,18 @@ class Toolbar extends Sprite
 		return Lambda.fold(buttons, function(btn, total) return Std.int(btn.width) + total, 0);
 	}
 
+	public var enabled(default, set):Bool;
+	function set_enabled(b:Bool)
+	{
+		return enabled = mouseEnabled = mouseChildren = b;
+	}
+
 	public function new()
 	{
 		super();
 
 		buttons = new Array();
-
-		mouseEnabled = mouseChildren = true;
+		enabled = true;
 		useHandCursor = true;
 
 #if flash

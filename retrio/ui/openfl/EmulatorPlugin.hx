@@ -1,12 +1,13 @@
 package retrio.ui.openfl;
 
 import haxe.Serializer;
+import haxe.ds.Vector;
 import flash.display.BitmapData;
 import flash.display.Sprite;
 import openfl.display.FPS;
 
 
-class EmulatorPlugin extends Sprite implements ISettingsHandler
+class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 {
 	public var running:Bool = false;
 	public var initialized:Bool = false;
@@ -15,6 +16,7 @@ class EmulatorPlugin extends Sprite implements ISettingsHandler
 	public var frameSkip:Int = 0;
 	public var extensions:Array<String>;
 	public var settings:Array<SettingCategory>;
+	public var controllers:Vector<IController>;
 
 	var volume:Float = 1;
 	var smooth:Bool = false;
@@ -46,7 +48,12 @@ class EmulatorPlugin extends Sprite implements ISettingsHandler
 
 	public function resize(width:Int, height:Int) {}
 
-	public function loadGame(gameData:FileWrapper) emu.loadGame(gameData);
+	public function loadGame(gameData:FileWrapper)
+	{
+		emu.loadGame(gameData);
+		resetEmu();
+	}
+
 	public function start()
 	{
 		running = true;
@@ -87,6 +94,7 @@ class EmulatorPlugin extends Sprite implements ISettingsHandler
 	{
 		deactivate();
 		emu = state;
+		resetEmu();
 		activate();
 	}
 
@@ -125,15 +133,47 @@ class EmulatorPlugin extends Sprite implements ISettingsHandler
 		}
 	}
 
+	public function addController(controller:IController, port:Int)
+	{
+		controllers[port] = controller;
+		controller.add();
+		emu.addController(controller, port);
+	}
+
+	public function removeController(port:Int)
+	{
+		if (controllers[port] != null)
+		{
+			controllers[port].remove();
+			controllers[port] = null;
+		}
+	}
+
 	public function loadSettings(?settings:Array<SettingCategory>)
 	{
 		if (settings == null) settings = this.settings;
 		for (page in settings)
 		{
-			for (setting in page.settings)
+			if (page.settings != null)
 			{
-				setSetting(setting.name, setting.value);
+				for (setting in page.settings)
+				{
+					setSetting(setting.name, setting.value);
+				}
+			}
+			else if (page.custom != null && page.custom.save != null)
+			{
+				page.custom.save(this);
 			}
 		}
+	}
+
+	function resetEmu()
+	{
+		for (i in 0 ... controllers.length)
+		{
+			emu.addController(controllers[i], i);
+		}
+		loadSettings();
 	}
 }
