@@ -38,7 +38,8 @@ class ControllerSettingsPage
 	var inputMethodList:ListSelector;
 	var lastInputMethod:String;
 	var buttonMap:Map<Int, Button> = new Map();
-	var buttonList:StyleableDisplayObject;
+	var buttonScroll:ScrollView;
+	var buttonList:VBox;
 
 	function new(plugin:IEmulatorFrontend, controllerImg:String, buttons:Array<Int>, buttonNames:Map<Int, String>,
 				 controllerTypes:Array<Class<IController>>, container:DisplayObjectContainer)
@@ -101,13 +102,14 @@ class ControllerSettingsPage
 		hbox.style.autoSize = true;
 
 		// controls
-		var scroll = new ScrollView();
-		scroll.style.percentWidth = 50;
-		scroll.style.percentHeight = 100;
+		buttonScroll = new ScrollView();
+		buttonScroll.style.percentWidth = 50;
+		buttonScroll.style.percentHeight = 100;
 
 		buttonList = new VBox();
 		buttonList.style.percentWidth = 100;
 		buttonList.style.padding = 8;
+		buttonList.style.paddingRight = 16;
 
 		for (button in buttons)
 		{
@@ -155,9 +157,13 @@ class ControllerSettingsPage
 			buttonList.addChild(row);
 		}
 
-		scroll.addChild(buttonList);
+		buttonScroll.addChild(buttonList);
 
-		hbox.addChild(scroll);
+		buttonScroll.onClick = function(e) {
+			buttonScroll.showVScroll = true;
+		}
+
+		hbox.addChild(buttonScroll);
 
 		var img = new Image();
 		img.style.percentWidth = 50;
@@ -179,7 +185,7 @@ class ControllerSettingsPage
 		if (controller == null)
 		{
 			inputMethodList.text = lastInputMethod = DISABLED;
-			buttonList.visible = false;
+			setButtonListVisibility(false);
 		}
 		else
 		{
@@ -196,8 +202,11 @@ class ControllerSettingsPage
 
 			if (inputMethodList.text == DISABLED)
 			{
-				plugin.controllers[selectedController] = null;
-				buttonList.visible = false;
+				if (plugin.controllers[selectedController] != null)
+				{
+					plugin.removeController(selectedController);
+				}
+				setButtonListVisibility(false);
 			}
 			else
 			{
@@ -229,6 +238,12 @@ class ControllerSettingsPage
 			var name = (code == null) ? DISABLED : controller.codeName(code);
 			buttonMap[i].text = name;
 		}
-		buttonList.visible = true;
+		setButtonListVisibility(true);
+	}
+
+	function setButtonListVisibility(visible:Bool)
+	{
+		buttonList.visible = visible;
+		buttonScroll.disabled = buttonList.disabled = !visible;
 	}
 }

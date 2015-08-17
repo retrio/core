@@ -7,18 +7,20 @@ import haxe.ui.toolkit.controls.HSlider;
 import haxe.ui.toolkit.controls.CheckBox;
 import haxe.ui.toolkit.controls.Spacer;
 import haxe.ui.toolkit.controls.selection.ListSelector;
-import haxe.ui.toolkit.data.ArrayDataSource;
-import haxe.ui.toolkit.core.DisplayObjectContainer;
-import haxe.ui.toolkit.core.Toolkit;
-import haxe.ui.toolkit.core.Root;
-import haxe.ui.toolkit.core.RootManager;
-import haxe.ui.toolkit.themes.GradientTheme;
 import haxe.ui.toolkit.containers.ScrollView;
 import haxe.ui.toolkit.containers.TabView;
 import haxe.ui.toolkit.containers.HBox;
 import haxe.ui.toolkit.containers.VBox;
 import haxe.ui.toolkit.containers.Grid;
 import haxe.ui.toolkit.containers.Absolute;
+import haxe.ui.toolkit.core.DisplayObjectContainer;
+import haxe.ui.toolkit.core.Toolkit;
+import haxe.ui.toolkit.core.Root;
+import haxe.ui.toolkit.core.RootManager;
+import haxe.ui.toolkit.data.ArrayDataSource;
+import haxe.ui.toolkit.style.Style;
+import haxe.ui.toolkit.style.StyleManager;
+import haxe.ui.toolkit.themes.GradientTheme;
 
 
 class SettingsPage
@@ -27,6 +29,9 @@ class SettingsPage
 	{
 		//Toolkit.theme = new GradientTheme();
 		Toolkit.init();
+		StyleManager.instance.addStyle("ScrollView", new Style({
+			autoHideScrolls: false,
+		}));
 
 		Toolkit.openPopup({x:0, y:0, percentWidth:100, percentHeight:100, styleName:'popup'}, function(root:Root) {
 			var abs = new Absolute();
