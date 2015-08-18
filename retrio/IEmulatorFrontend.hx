@@ -1,6 +1,7 @@
 package retrio;
 
 import haxe.ds.Vector;
+import retrio.io.FileWrapper;
 
 
 interface IEmulatorFrontend extends ISettingsHandler

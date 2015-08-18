@@ -5,6 +5,7 @@ import haxe.ds.Vector;
 import flash.display.BitmapData;
 import flash.display.Sprite;
 import openfl.display.FPS;
+import retrio.io.FileWrapper;
 
 
 class EmulatorPlugin extends Sprite implements IEmulatorFrontend
@@ -113,26 +114,6 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 
 	public function setSpeed(speed:EmulationSpeed) {}
 
-	public function setSetting(name:String, value:Dynamic):Void
-	{
-		switch (name)
-		{
-			case GlobalSettings.Volume:
-				volume = cast(value, Int) / 100;
-
-			case GlobalSettings.Smooth:
-				smooth = cast(value, Bool);
-
-			case GlobalSettings.FrameSkip:
-				frameSkip = cast(value, Int);
-
-			case GlobalSettings.ShowFPS:
-				fps.visible = cast(value, Bool);
-
-			default: {}
-		}
-	}
-
 	public function addController(controller:IController, port:Int)
 	{
 		controllers[port] = controller;
@@ -158,13 +139,33 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 			{
 				for (setting in page.settings)
 				{
-					setSetting(setting.name, setting.value);
+					setSetting(setting.id, setting.value);
 				}
 			}
 			else if (page.custom != null && page.custom.save != null)
 			{
 				page.custom.save(this);
 			}
+		}
+	}
+
+	public function setSetting(id:String, value:Dynamic):Void
+	{
+		switch (id)
+		{
+			case GlobalSettings.Volume:
+				volume = cast(value, Int) / 100;
+
+			case GlobalSettings.Smooth:
+				smooth = cast(value, Bool);
+
+			case GlobalSettings.FrameSkip:
+				frameSkip = cast(value, Int);
+
+			case GlobalSettings.ShowFPS:
+				fps.visible = cast(value, Bool);
+
+			default: {}
 		}
 	}
 

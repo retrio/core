@@ -1,11 +1,13 @@
-package retrio;
+package retrio.io;
 
 import haxe.io.Path;
 import haxe.io.Bytes;
 import haxe.io.Input;
 
 
-abstract FileWrapper({path:Path, data:Input})
+typedef FileDescription = {path:Path, data:Input}
+
+abstract FileWrapper(FileDescription)
 {
 	public var dir(get, never):String;
 	inline function get_dir() return this.path.dir;

@@ -19,8 +19,9 @@ class FlashIO implements IEnvironment
 		return Reflect.hasField(so.data, "data");
 	}
 
-	public function readFile(name:String, ?newRoot=false):FileWrapper
+	public function readFile(name:String, ?chdir=false):FileWrapper
 	{
+		// no directories, chdir is ignored
 		var so = SharedObject.getLocal(name);
 		try
 		{
@@ -33,28 +34,16 @@ class FlashIO implements IEnvironment
 		}
 	}
 
-	public function writeBytesToFile(name:String, data:Bytes):Void
+	public function writeFile():OutputFile
+	{
+		return new OutputFile(this);
+	}
+
+	public function saveFile(file:OutputFile, name:String, ?home=false)
 	{
 		var so = SharedObject.getLocal(name);
-		so.data.data = data.getData();
+		so.data.data = file.getBytes().getData();
 		so.flush();
-	}
-
-	public function writeByteStringToFile(name:String, data:ByteString):Void
-	{
-		var out = new BytesOutput();
-		data.writeTo(out);
-		writeBytesToFile(name, out.getBytes());
-	}
-
-	public function writeVectorToFile(name:String, data:Vector<ByteString>):Void
-	{
-		var out = new BytesOutput();
-		for (d in data)
-		{
-			d.writeTo(out);
-		}
-		writeBytesToFile(name, out.getBytes());
 	}
 
 	public function openFileDialog(extensions:Array<String>, onSuccess:FileWrapper->Void, ?onCancel:Void->Void):Void

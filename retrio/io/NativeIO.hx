@@ -18,11 +18,11 @@ class NativeIO implements IEnvironment
 		return FileSystem.exists(pathTo(name));
 	}
 
-	public function readFile(name:String, ?newRoot=false):Null<FileWrapper>
+	public function readFile(name:String, ?chdir=false):Null<FileWrapper>
 	{
 		var path:String;
 
-		if (newRoot)
+		if (chdir)
 		{
 			root = new Path(name).dir;
 			path = name;
@@ -40,22 +40,15 @@ class NativeIO implements IEnvironment
 		}
 	}
 
-	public function writeBytesToFile(name:String, data:Bytes):Void
+	public function writeFile():OutputFile
 	{
-		var out = File.write(pathTo(name), true);
-		out.write(data);
+		return new OutputFile(this);
 	}
 
-	public function writeByteStringToFile(name:String, data:ByteString):Void
+	public function saveFile(file:OutputFile, name:String, ?home=false)
 	{
 		var out = File.write(pathTo(name), true);
-		data.writeTo(out);
-	}
-
-	public function writeVectorToFile(name:String, data:Vector<ByteString>):Void
-	{
-		var out = File.write(pathTo(name), true);
-		for (d in data) d.writeTo(out);
+		out.write(file.getBytes());
 	}
 
 	public function openFileDialog(extensions:Array<String>, onSuccess:FileWrapper->Void, ?onCancel:Void->Void):Void

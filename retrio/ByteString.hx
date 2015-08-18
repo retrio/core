@@ -3,6 +3,7 @@ package retrio;
 import haxe.io.Bytes;
 import haxe.io.Input;
 import haxe.io.Output;
+import retrio.io.FileWrapper;
 
 
 #if flash

@@ -3,6 +3,8 @@ package retrio;
 
 typedef CustomSetting =
 {
-	var render:Dynamic;
-	var save:Dynamic;
+	@:optional var render:Dynamic;
+	@:optional var save:Dynamic;
+	@:optional var serialize:Null<Void->Dynamic>;
+	@:optional var unserialize:Null<Dynamic->Void>;
 }

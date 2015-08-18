@@ -2,6 +2,8 @@ package retrio;
 
 import haxe.io.Input;
 import haxe.ds.Vector;
+import retrio.io.FileWrapper;
+import retrio.io.IEnvironment;
 
 
 interface IEmulator

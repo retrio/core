@@ -16,7 +16,7 @@ class Html5IO implements IEnvironment
 		return false;
 	}
 
-	public function readFile(name:String, ?newRoot=false):FileWrapper
+	public function readFile(name:String, ?chdir=false):FileWrapper
 	{
 		return null;
 	}

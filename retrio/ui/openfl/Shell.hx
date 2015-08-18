@@ -13,6 +13,8 @@ import flash.media.Sound;
 import flash.media.SoundChannel;
 import flash.utils.ByteArray;
 import haxe.ui.toolkit.core.Toolkit;
+import retrio.io.FileWrapper;
+import retrio.io.IEnvironment;
 
 
 @:build(retrio.macro.Optimizer.build())
