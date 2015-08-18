@@ -15,7 +15,7 @@ import haxe.ui.toolkit.containers.ScrollView;
 import haxe.ui.toolkit.containers.HBox;
 import haxe.ui.toolkit.containers.VBox;
 import haxe.ui.toolkit.containers.Grid;
-import retrio.ISettingsHandler;
+import retrio.config.ISettingsHandler;
 
 
 class ControllerSettingsPage

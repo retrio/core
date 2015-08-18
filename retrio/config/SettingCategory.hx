@@ -1,4 +1,4 @@
-package retrio;
+package retrio.config;
 
 
 typedef SettingCategory = {

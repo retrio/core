@@ -21,6 +21,9 @@ import haxe.ui.toolkit.data.ArrayDataSource;
 import haxe.ui.toolkit.style.Style;
 import haxe.ui.toolkit.style.StyleManager;
 import haxe.ui.toolkit.themes.GradientTheme;
+import retrio.config.ISettingsHandler;
+import retrio.config.Setting;
+import retrio.config.SettingCategory;
 
 
 class SettingsPage

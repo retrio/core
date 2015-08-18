@@ -6,6 +6,8 @@ import flash.display.BitmapData;
 import flash.display.Sprite;
 import openfl.display.FPS;
 import retrio.io.FileWrapper;
+import retrio.config.GlobalSettings;
+import retrio.config.SettingCategory;
 
 
 class EmulatorPlugin extends Sprite implements IEmulatorFrontend

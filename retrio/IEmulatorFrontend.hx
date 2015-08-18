@@ -1,6 +1,7 @@
 package retrio;
 
 import haxe.ds.Vector;
+import retrio.config.ISettingsHandler;
 import retrio.io.FileWrapper;
 
 
