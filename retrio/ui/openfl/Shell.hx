@@ -13,12 +13,14 @@ import flash.media.Sound;
 import flash.media.SoundChannel;
 import flash.utils.ByteArray;
 import haxe.ui.toolkit.core.Toolkit;
+import retrio.config.Setting;
 import retrio.io.FileWrapper;
 import retrio.io.IEnvironment;
+import retrio.ui.haxeui.ErrorPopup;
 
 
 @:build(retrio.macro.Optimizer.build())
-class Shell extends Sprite
+class Shell extends Sprite implements IExceptionHandler
 {
 	static inline var MAX_WIDTH:Int = 1024;
 	static inline var MAX_HEIGHT:Int = 768;
@@ -109,12 +111,18 @@ class Shell extends Sprite
 		onResize(null);
 		addChildAt(plugin, 0);
 
-		plugin.emu.io = io;
+		plugin.io = io;
 		plugin.activate();
 		plugin.loadSettings();
+
+		if (io.fileExists(plugin.settingsFileName(), true))
+		{
+			Setting.unserialize(io.readFile(plugin.settingsFileName(), true).readAll().toString(), plugin.settings);
+			plugin.loadSettings();
+		}
 	}
 
-	public function loadGame(f:FileWrapper)
+	@:handler(handleError) public function loadGame(f:FileWrapper)
 	{
 		plugin.loadGame(f);
 	}
@@ -135,7 +143,7 @@ class Shell extends Sprite
 		return plugin.addController(c, port);
 	}
 
-	public function onResize(e:Event)
+	@:handler(handleError) public function onResize(e:Event)
 	{
 		_width = Std.int(_stage.stageWidth);
 		_height = Std.int(_stage.stageHeight - TOOLBAR_HEIGHT);
@@ -159,7 +167,7 @@ class Shell extends Sprite
 		toolbar.y = _height;
 	}
 
-	public function update(e:Dynamic)
+	@:handler(handleFatalError) public function update(e:Dynamic)
 	{
 		if (!running) return;
 
@@ -204,14 +212,14 @@ class Shell extends Sprite
 		createToolbar();
 	}
 
-	function onActivate(e:Dynamic)
+	@:handler(handleError) function onActivate(e:Dynamic)
 	{
 		if (plugin == null || !loaded) return;
 		if (e != null) temporaryResume();
 		plugin.activate();
 	}
 
-	function onDeactivate(e:Dynamic)
+	@:handler(handleError) function onDeactivate(e:Dynamic)
 	{
 		if (plugin == null || !loaded) return;
 		if (e != null) temporaryPause();
@@ -307,7 +315,7 @@ class Shell extends Sprite
 		}
 	}
 
-	function loadRom()
+	@:handler(handleFatalError) function loadRom()
 	{
 		if (plugin == null) return;
 
@@ -327,7 +335,7 @@ class Shell extends Sprite
 	}
 
 #if screenshot
-	function screenshot()
+	@:handler(handleError) function screenshot()
 	{
 		if (plugin == null || !loaded) return;
 		temporaryPause();
@@ -348,7 +356,7 @@ class Shell extends Sprite
 	}
 #end
 
-	function reset()
+	@:handler(handleFatalError) function reset()
 	{
 		if (plugin == null || !loaded) return;
 		// TODO: confirm with dialog
@@ -356,7 +364,7 @@ class Shell extends Sprite
 		running = true;
 	}
 
-	function saveState()
+	@:handler(handleError) function saveState()
 	{
 		if (plugin != null && plugin.emu != null && Std.is(plugin.emu, IState))
 		{
@@ -364,7 +372,7 @@ class Shell extends Sprite
 		}
 	}
 
-	function loadState()
+	@:handler(handleError) function loadState()
 	{
 		if (plugin != null && plugin.emu != null && Std.is(plugin.emu, IState))
 		{
@@ -429,5 +437,17 @@ class Shell extends Sprite
 			toolbar.enabled = false;
 			retrio.ui.haxeui.SettingsPage.show(plugin.settings, plugin, function() { _settingsShown = false; toolbar.enabled = true; temporaryResume(); });
 		}
+	}
+
+	function handleError(e:Dynamic)
+	{
+		temporaryPause();
+		ErrorPopup.show("There was an error: " + Std.string(e), temporaryResume);
+	}
+
+	function handleFatalError(e:Dynamic)
+	{
+		plugin.close();
+		ErrorPopup.show("There was an error: " + Std.string(e));
 	}
 }

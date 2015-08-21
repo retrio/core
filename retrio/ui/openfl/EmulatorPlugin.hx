@@ -6,8 +6,10 @@ import flash.display.BitmapData;
 import flash.display.Sprite;
 import openfl.display.FPS;
 import retrio.io.FileWrapper;
-import retrio.config.GlobalSettings;
+import retrio.io.IEnvironment;
+import retrio.config.Setting;
 import retrio.config.SettingCategory;
+import retrio.config.GlobalSettings;
 
 
 class EmulatorPlugin extends Sprite implements IEmulatorFrontend
@@ -20,6 +22,13 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 	public var extensions:Array<String>;
 	public var settings:Array<SettingCategory>;
 	public var controllers:Vector<IController>;
+
+	public var io(default, set):IEnvironment;
+	function set_io(io:IEnvironment)
+	{
+		emu.io = io;
+		return this.io = io;
+	}
 
 	var volume:Float = 1;
 	var smooth:Bool = false;
@@ -38,6 +47,11 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 
 		fps = new FPS(10, 10, 0x00ff00);
 		addChild(fps);
+
+		if (!Reflect.hasField(Type.getClass(this), "_name"))
+		{
+			throw "Missing plugin name: " + this;
+		}
 	}
 
 	public function frame()
@@ -132,9 +146,10 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 		}
 	}
 
-	public function loadSettings(?settings:Array<SettingCategory>)
+	public function loadSettings(?settings:Array<SettingCategory>, ?save:Bool=false)
 	{
 		if (settings == null) settings = this.settings;
+		var dirty = false;
 		for (page in settings)
 		{
 			if (page.settings != null)
@@ -142,12 +157,20 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 				for (setting in page.settings)
 				{
 					setSetting(setting.id, setting.value);
+					if (setting.dirty)
+						dirty = true;
 				}
 			}
 			else if (page.custom != null && page.custom.save != null)
 			{
-				page.custom.save(this);
+				page.custom.save(page.custom);
+				if (page.custom.dirty)
+					dirty = true;
 			}
+		}
+		if (save && dirty)
+		{
+			saveSettings();
 		}
 	}
 
@@ -171,8 +194,22 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 		}
 	}
 
+	function saveSettings()
+	{
+		var file = io.writeFile();
+		var settingsData = Setting.serialize(settings);
+		file.writeString(settingsData);
+		file.save(settingsFileName(), true);
+	}
+
+	public function settingsFileName():String
+	{
+		return Reflect.field(Type.getClass(this), "_name") + ".settings";
+	}
+
 	function resetEmu()
 	{
+		emu.io = io;
 		for (i in 0 ... controllers.length)
 		{
 			emu.addController(controllers[i], i);

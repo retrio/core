@@ -1,5 +1,6 @@
 package retrio.ui.haxeui;
 
+import haxe.Json;
 import haxe.ui.toolkit.controls.Button;
 import haxe.ui.toolkit.controls.Image;
 import haxe.ui.toolkit.controls.Text;
@@ -15,8 +16,14 @@ import haxe.ui.toolkit.containers.ScrollView;
 import haxe.ui.toolkit.containers.HBox;
 import haxe.ui.toolkit.containers.VBox;
 import haxe.ui.toolkit.containers.Grid;
+import retrio.config.CustomSetting;
 import retrio.config.ISettingsHandler;
 
+
+typedef ControllerDef = {
+	var type:String;
+	var bindings:Map<String, Int>;
+}
 
 class ControllerSettingsPage
 {
@@ -28,7 +35,63 @@ class ControllerSettingsPage
 		var page = new ControllerSettingsPage(plugin, controllerImg, buttons, buttonNames, controllerTypes, container);
 	}
 
-	public static function save(plugin:ISettingsHandler) {}
+	public static function save(plugin:IEmulatorFrontend, setting:CustomSetting) {}
+
+	public static function serialize(plugin:IEmulatorFrontend):Dynamic
+	{
+		var data:Array<ControllerDef> = new Array();
+		for (controller in plugin.controllers)
+		{
+			if (controller == null)
+			{
+				data.push(null);
+			}
+			else
+			{
+				var bindings = controller.getDefinitions();
+				var bindingData:Map<String, Int> = new Map();
+				for (key in bindings.keys())
+				{
+					bindingData.set(Std.string(key), bindings[key]);
+				}
+				data.push({type: Reflect.field(Type.getClass(controller), "name"), bindings: bindingData});
+			}
+		}
+		return data;
+	}
+
+	public static function unserialize(plugin:IEmulatorFrontend, controllerTypes:Array<Class<IController>>, serializedData:Dynamic, setting:CustomSetting):Void
+	{
+		var data:Array<Dynamic> = cast serializedData;
+		var i = 0;
+		for (def in data)
+		{
+			if (def == null)
+			{
+				plugin.controllers[i] = null;
+			}
+			else
+			{
+				var cls = Reflect.field(def, "type");
+				for (c in controllerTypes)
+				{
+					if (Reflect.field(c, "name") == cls)
+					{
+						var controller = Type.createInstance(c, []);
+						var bindings = Reflect.field(def, "bindings");
+						for (key in Reflect.fields(bindings))
+						{
+							controller.define(Std.parseInt(key), Std.int(Reflect.field(bindings, key)));
+						}
+						plugin.removeController(i);
+						plugin.addController(controller, i);
+						break;
+					}
+				}
+			}
+			++i;
+		}
+	}
 
 	var plugin:IEmulatorFrontend;
 	var controllerTypes:Array<Class<IController>>;
@@ -40,6 +103,8 @@ class ControllerSettingsPage
 	var buttonMap:Map<Int, Button> = new Map();
 	var buttonScroll:ScrollView;
 	var buttonList:VBox;
+
+	var dirty:Bool;
 
 	function new(plugin:IEmulatorFrontend, controllerImg:String, buttons:Array<Int>, buttonNames:Map<Int, String>,
 				 controllerTypes:Array<Class<IController>>, container:DisplayObjectContainer)
@@ -138,6 +203,7 @@ class ControllerSettingsPage
 						switch(btnPressed) {
 							case PopupButton.CUSTOM:
 								plugin.controllers[selectedController].clearDefinition(button);
+								dirty = true;
 								btn.text = DISABLED;
 							case PopupButton.CANCEL:
 								plugin.controllers[selectedController].ask(null);
@@ -148,6 +214,7 @@ class ControllerSettingsPage
 					var c = plugin.controllers[selectedController];
 					c.define(k, button);
 					btn.text = c.codeName(k);
+					dirty = true;
 					PopupManager.instance.hidePopup(popup);
 				});
 			}
@@ -198,6 +265,7 @@ class ControllerSettingsPage
 	{
 		if (inputMethodList.text != lastInputMethod)
 		{
+			dirty = true;
 			lastInputMethod = inputMethodList.text;
 
 			if (inputMethodList.text == DISABLED)

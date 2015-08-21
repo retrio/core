@@ -9,6 +9,7 @@ interface IController
 
 	public function define(code:Int, button:Int):Void;
 	public function clearDefinition(button:Int):Void;
+	public function getDefinitions():Map<Int, Int>;
 
 	public function ask(callback:Null<Int->Void>):Void;
 	public function codeName(code:Int):String;

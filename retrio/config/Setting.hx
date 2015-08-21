@@ -5,11 +5,6 @@ import haxe.Json;
 
 class Setting
 {
-	public var id:String;
-	public var name:String;
-	public var type:SettingType;
-	public var value:Dynamic;
-
 	public static function serialize(categories:Array<SettingCategory>):String
 	{
 		var data:Map<String, Dynamic> = new Map();
@@ -19,7 +14,7 @@ class Setting
 			{
 				if (category.custom != null && category.custom.serialize != null)
 				{
-					data[category.id] = category.custom.save();
+					data[category.id] = category.custom.serialize();
 				}
 			}
 			else
@@ -50,7 +45,7 @@ class Setting
 					{
 						if (category.custom != null && category.custom.unserialize != null)
 						{
-							category.custom.unserialize(Reflect.field(data, field));
+							category.custom.unserialize(Reflect.field(data, field), category.custom);
 						}
 					}
 					else
@@ -72,12 +67,27 @@ class Setting
 		}
 	}
 
+	public var id:String;
+	public var name:String;
+	public var type:SettingType;
+	public var dirty:Bool;
+
+	public var value(get, set):Dynamic;
+	inline function get_value() return _value;
+	inline function set_value(v:Dynamic)
+	{
+		if (v != value) dirty = true;
+		return _value = v;
+	}
+
+	var _value:Dynamic;
+
 	public inline function new(id:String, name:String, type:SettingType, value:Dynamic)
 	{
 		this.id = id;
 		this.name = name;
 		this.type = type;
-		this.value = value;
+		this._value = value;
 	}
 
 	public inline function toString():String

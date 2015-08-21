@@ -162,4 +162,9 @@ class KeyboardController implements IController
 		if (char >= 96 && char <= 105) return "NUMPAD " + Std.string(char - 96);
 		return keyNames.exists(char) ? keyNames.get(char) : String.fromCharCode(char);
 	}
+
+	public function getDefinitions():Map<Int, Int>
+	{
+		return _keyMap;
+	}
 }

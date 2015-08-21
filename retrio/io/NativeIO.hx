@@ -13,21 +13,19 @@ class NativeIO implements IEnvironment
 
 	public function new() {}
 
-	public function fileExists(name:String):Bool
+	public function chdir(path:String):Void
 	{
-		return FileSystem.exists(pathTo(name));
+		root = path;
 	}
 
-	public function readFile(name:String, ?chdir=false):Null<FileWrapper>
+	public function fileExists(path:String, ?home:Bool=false):Bool
 	{
-		var path:String;
+		return FileSystem.exists(pathTo(path, home));
+	}
 
-		if (chdir)
-		{
-			root = new Path(name).dir;
-			path = name;
-		}
-		else path = pathTo(name);
+	public function readFile(path:String, ?home:Bool=false):Null<FileWrapper>
+	{
+		path = pathTo(path, home);
 
 		try
 		{
@@ -45,9 +43,9 @@ class NativeIO implements IEnvironment
 		return new OutputFile(this);
 	}
 
-	public function saveFile(file:OutputFile, name:String, ?home=false)
+	public function saveFile(file:OutputFile, path:String, ?home:Bool=false)
 	{
-		var out = File.write(pathTo(name), true);
+		var out = File.write(pathTo(path, home), true);
 		out.write(file.getBytes());
 	}
 
@@ -56,20 +54,32 @@ class NativeIO implements IEnvironment
 		var filters = {count: 1, descriptions: ["ROM files"], extensions: [extensions.join(';')]};
 		var result:Array<String> = systools.Dialogs.openFile("Choose a ROM file.", "", filters);
 		if (result != null && result.length > 0)
-			onSuccess(readFile(result[0], true));
+		{
+			var path = new Path(result[0]);
+			chdir(path.dir);
+			onSuccess(readFile(Path.withoutDirectory(result[0]), false));
+		}
 		else
+		{
 			onCancel();
+		}
 	}
 
-	public function saveFileDialog(defaultName:String, onSuccess:String->Void):Void
+	public function saveFileDialog(defaultpath:String, onSuccess:String->Void):Void
 	{
 		var result:String = systools.Dialogs.saveFile("Save file", "", "");
 		if (result != null)
 			onSuccess(result);
 	}
 
-	inline function pathTo(name:String):String
+	inline function pathTo(path:String, home:Bool):String
 	{
-		return Path.join([root, name]);
+		return Path.join([home ? homeDir() : root, path]);
+	}
+
+	inline function homeDir():String
+	{
+		// TODO
+		return root;
 	}
 }

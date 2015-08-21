@@ -6,8 +6,10 @@ import haxe.io.Bytes;
 
 interface IEnvironment
 {
-	public function readFile(name:String, ?chdir:Bool=false):FileWrapper;
-	public function fileExists(name:String):Bool;
+	public function chdir(path:String):Void;
+
+	public function readFile(name:String, ?home:Bool=false):Null<FileWrapper>;
+	public function fileExists(name:String, ?home:Bool=false):Bool;
 	public function writeFile():OutputFile;
 	public function saveFile(file:OutputFile, name:String, ?home:Bool=false):Void;
 

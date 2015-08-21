@@ -62,7 +62,7 @@ class SettingsPage
 			var btn = new Button();
 			btn.text = "Close";
 			btn.onClick = function(e) {
-				handler.loadSettings(settings);
+				handler.loadSettings(settings, true);
 				RootManager.instance.destroyRoot(root);
 				if (finishedCallback != null)
 					finishedCallback();

@@ -13,16 +13,17 @@ class FlashIO implements IEnvironment
 {
 	public function new() {}
 
-	public function fileExists(name:String):Bool
+	public function chdir(path:String):Void {}
+
+	public function fileExists(path:String, ?home:Bool=false):Bool
 	{
-		var so = SharedObject.getLocal(name);
+		var so = SharedObject.getLocal(path);
 		return Reflect.hasField(so.data, "data");
 	}
 
-	public function readFile(name:String, ?chdir=false):FileWrapper
+	public function readFile(path:String, ?home:Bool=false):Null<FileWrapper>
 	{
-		// no directories, chdir is ignored
-		var so = SharedObject.getLocal(name);
+		var so = SharedObject.getLocal(path);
 		try
 		{
 			var f = new FileWrapper(new BytesInput(Bytes.ofData(so.data.data)));
@@ -39,9 +40,9 @@ class FlashIO implements IEnvironment
 		return new OutputFile(this);
 	}
 
-	public function saveFile(file:OutputFile, name:String, ?home=false)
+	public function saveFile(file:OutputFile, path:String, ?home:Bool=false)
 	{
-		var so = SharedObject.getLocal(name);
+		var so = SharedObject.getLocal(path);
 		so.data.data = file.getBytes().getData();
 		so.flush();
 	}
