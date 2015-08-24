@@ -152,7 +152,8 @@ class Shell extends Sprite implements IExceptionHandler
 
 		if (plugin != null && plugin.emu != null)
 		{
-			var w = plugin.screenBuffer.screenWidth, h = plugin.screenBuffer.screenHeight;
+			var w = plugin.screenBuffer.screenWidth,
+				h = plugin.screenBuffer.screenHeight;
 			var ratio:Int = Std.int(Math.max(1,
 				Math.min(Math.min(MAX_WIDTH, _width) / w,
 				Math.min(MAX_HEIGHT, _height) / h)));

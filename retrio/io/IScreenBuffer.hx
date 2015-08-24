@@ -11,10 +11,7 @@ interface IScreenBuffer
 	public var clipLeft(default, set):Int;
 	public var clipRight(default, set):Int;
 
-	public var colorTransform:Null<Int->Int>;
-
 	public function pset(addr:Int, c:Int):Void;
-	public function pget(addr:Int):Int;
 
 	public function resize(width:Int, height:Int):Void;
 	public function startFrame():Void;

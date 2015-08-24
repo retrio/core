@@ -24,8 +24,6 @@ class BitmapScreenBuffer extends Bitmap implements IScreenBuffer implements IScr
 		return baseHeight - clipTop - clipBottom;
 	}
 
-	public var colorTransform:Null<Int->Int>;
-
 	public var clipTop(default, set):Int = 0;
 	public var clipBottom(default, set):Int = 0;
 	public var clipLeft(default, set):Int = 0;
@@ -59,14 +57,11 @@ class BitmapScreenBuffer extends Bitmap implements IScreenBuffer implements IScr
 		loopEnd = (baseHeight-clipBottom)*baseWidth;
 		r.height = baseHeight-clipBottom-clipTop;
 		bmpData.fillRect(bmpData.rect, 0xff000000);
-
-		trace(loopStart, loopEnd, r);
 	}
 
 	var baseWidth:Int;
 	var baseHeight:Int;
 
-	var pixelData:ByteString;
 	var pixels:ByteArray;
 
 	var canvas:BitmapData;
@@ -84,8 +79,6 @@ class BitmapScreenBuffer extends Bitmap implements IScreenBuffer implements IScr
 		this.baseWidth = baseWidth;
 		this.baseHeight = baseHeight;
 
-		pixelData = new ByteString(baseWidth * baseHeight);
-
 		r = new Rectangle(0, 0, baseWidth, baseHeight);
 		bmpData = new BitmapData(baseWidth, baseHeight, false, 0);
 
@@ -101,12 +94,7 @@ class BitmapScreenBuffer extends Bitmap implements IScreenBuffer implements IScr
 
 	public inline function pset(addr:Int, value:Int):Void
 	{
-		pixelData.set(addr, value);
-	}
-
-	public inline function pget(addr:Int):Int
-	{
-		return pixelData.get(addr);
+		Memory.setI32(addr*4, value);
 	}
 
 	public function resize(width:Int, height:Int):Void
@@ -114,7 +102,7 @@ class BitmapScreenBuffer extends Bitmap implements IScreenBuffer implements IScr
 		if (canvas != null) canvas.dispose();
 		canvas = new BitmapData(width, height, false, 0);
 
-		var sx = canvas.width / baseWidth, sy = canvas.height / baseHeight;
+		var sx = canvas.width / screenWidth, sy = canvas.height / screenHeight;
 		m.setTo(sx, 0, 0, sy, 0, 0);
 
 		bitmapData = canvas;
@@ -131,21 +119,6 @@ class BitmapScreenBuffer extends Bitmap implements IScreenBuffer implements IScr
 
 	public function render():Void
 	{
-		if (colorTransform == null)
-		{
-			for (i in loopStart ... loopEnd)
-			{
-				Memory.setI32((i-loopStart)*4, pixelData.get(i));
-			}
-		}
-		else
-		{
-			for (i in loopStart ... loopEnd)
-			{
-				Memory.setI32((i-loopStart)*4, colorTransform(pixelData.get(i)));
-			}
-		}
-
 		pixels.position = 0;
 
 		bmpData.lock();
