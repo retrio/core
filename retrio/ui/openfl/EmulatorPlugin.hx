@@ -7,6 +7,7 @@ import flash.display.Sprite;
 import openfl.display.FPS;
 import retrio.io.FileWrapper;
 import retrio.io.IEnvironment;
+import retrio.io.IScreenBuffer;
 import retrio.config.Setting;
 import retrio.config.SettingCategory;
 import retrio.config.GlobalSettings;
@@ -28,6 +29,12 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 	{
 		emu.io = io;
 		return this.io = io;
+	}
+
+	public var screenBuffer(default, set):IScreenBuffer;
+	function set_screenBuffer(screenBuffer:IScreenBuffer)
+	{
+		return emu.screenBuffer = this.screenBuffer = screenBuffer;
 	}
 
 	var volume:Float = 1;
@@ -63,7 +70,10 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 		if (frameRate < 1) frameRate = 60;
 	}
 
-	public function resize(width:Int, height:Int) {}
+	public function resize(width:Int, height:Int)
+	{
+		if (screenBuffer != null) screenBuffer.resize(width, height);
+	}
 
 	public function loadGame(gameData:FileWrapper)
 	{
@@ -95,11 +105,13 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 	public function activate()
 	{
 		active = true;
+		if (screenBuffer != null) screenBuffer.activate();
 	}
 
 	public function deactivate()
 	{
 		active = false;
+		if (screenBuffer != null) screenBuffer.deactivate();
 	}
 
 	public function saveState():String
@@ -115,7 +127,10 @@ class EmulatorPlugin extends Sprite implements IEmulatorFrontend
 		activate();
 	}
 
-	public function capture():Null<BitmapData> return null;
+	public function capture():Null<BitmapData>
+	{
+		return Std.is(screenBuffer, IScreencapBuffer) ? cast(screenBuffer, IScreencapBuffer).capture() : null;
+	}
 
 	public function getSamples(e:Dynamic)
 	{

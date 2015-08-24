@@ -16,6 +16,7 @@ class ExceptionHandler
 
 	static function transformField(field:Field)
 	{
+#if !debug
 		if (Reflect.hasField(field, 'meta'))
 		{
 			for (meta in field.meta)
@@ -33,6 +34,7 @@ class ExceptionHandler
 				}
 			}
 		}
+#end
 		return field;
 	}
 

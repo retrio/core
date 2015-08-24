@@ -20,7 +20,7 @@ class ButtonHint extends TextField
 		{
 			fmt = new TextFormat();
 			fmt.color = 0xff0000;
-			fmt.size = 14;
+			fmt.size = 18;
 			fmt.align = TextFormatAlign.CENTER;
 			fmt.font = Assets.getFont("fonts/archivo.otf").fontName;
 		}

@@ -4,14 +4,15 @@ import haxe.io.Input;
 import haxe.ds.Vector;
 import retrio.io.FileWrapper;
 import retrio.io.IEnvironment;
+import retrio.io.IScreenBuffer;
 
 
 interface IEmulator
 {
 	// interface to provide file loading/saving capabilities
 	public var io:IEnvironment;
+	public var screenBuffer(default, set):IScreenBuffer;
 
-	public var buffer:ByteString;
 	public var extensions:Array<String>;
 	public var width:Int;
 	public var height:Int;
@@ -33,6 +34,4 @@ interface IEmulator
 
 	// called once per frame
 	public function frame(rate:Float):Void;
-
-	public function getColor(c:Int):Int;
 }

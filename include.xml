@@ -2,7 +2,7 @@
 <project>
 	<!--haxedef name="analyzer"/-->
 
-    <window antialiasing="4"/>
+	<window antialiasing="4"/>
 
 	<haxedef name="screenshot" unless="js"/>
 
@@ -13,6 +13,8 @@
 	<haxedef name="lime-legacy" if="native"/>
 	<haxedef name="haxeui-no-gif-support"/>
 	<haxedef name="haxeui-embed-resources"/>
+	<haxedef name="haxeJSON"/>
+	<haxedef name="legacy"/>
 
 	<haxelib name="format"/>
 	<haxelib name="systools" if="native"/>

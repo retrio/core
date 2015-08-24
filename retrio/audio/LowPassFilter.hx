@@ -32,7 +32,7 @@ class LowPassFilter
 		coefficients = new Vector(filterOrder + 1);
 		var factor = 2 * cutoff;
 		var halfOrder = filterOrder >> 1;
-		for (i in 0 ... filterOrder)
+		for (i in 0 ... coefficients.length)
 		{
 			var c = factor * sinc(factor * (i - halfOrder));
 			// blackman window

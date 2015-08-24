@@ -152,7 +152,7 @@ class Shell extends Sprite implements IExceptionHandler
 
 		if (plugin != null && plugin.emu != null)
 		{
-			var w = plugin.emu.width, h = plugin.emu.height;
+			var w = plugin.screenBuffer.screenWidth, h = plugin.screenBuffer.screenHeight;
 			var ratio:Int = Std.int(Math.max(1,
 				Math.min(Math.min(MAX_WIDTH, _width) / w,
 				Math.min(MAX_HEIGHT, _height) / h)));
@@ -341,6 +341,7 @@ class Shell extends Sprite implements IExceptionHandler
 		temporaryPause();
 		var bmd = plugin.capture();
 		if (bmd == null) return;
+
 		var encoded:ByteArray = bmd.encode(bmd.rect, new flash.display.PNGEncoderOptions());
 		var path = "Screenshot " + Date.now().toString() + ".png";
 #if flash
