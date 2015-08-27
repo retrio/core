@@ -3,8 +3,50 @@ package retrio;
 import haxe.xml.Fast;
 import sys.io.File;
 import sys.FileSystem;
-import retrio.FileWrapper;
+import retrio.io.FileWrapper;
 import retrio.io.IO;
+import retrio.io.IScreenBuffer;
+
+
+class TestScreenBuffer implements IScreenBuffer
+{
+	var width:Int;
+	var height:Int;
+	var _pixels:ByteString;
+
+	public var screenWidth(get, never):Int;
+	function get_screenWidth() return width;
+	public var screenHeight(get, never):Int;
+	function get_screenHeight() return height;
+
+	public var clipTop(default, set):Int = 0;
+	public var clipBottom(default, set):Int = 0;
+	public var clipLeft(default, set):Int = 0;
+	public var clipRight(default, set):Int = 0;
+
+	function set_clipTop(y:Int) return y;
+	function set_clipBottom(y:Int) return y;
+	function set_clipLeft(x:Int) return x;
+	function set_clipRight(x:Int) return x;
+
+	public function new(width:Int, height:Int)
+	{
+		this.width = width;
+		this.height = height;
+
+		_pixels = new ByteString(width * height);
+	}
+
+	public inline function pset(addr:Int, value:Int):Void _pixels[addr] = value;
+
+	public function getPixels():Iterable<Int> return {iterator: _pixels.iterator};
+
+	public function resize(width:Int, height:Int):Void {}
+	public function startFrame():Void {}
+	public function activate():Void {}
+	public function deactivate():Void {}
+	public function render():Void {}
+}
 
 
 class Test
@@ -15,6 +57,7 @@ class Test
 	static function runTests(emu:IEmulator)
 	{
 		var io = IO.defaultIO;
+		emu.screenBuffer = new TestScreenBuffer(emu.width, emu.height);
 
 		var testData = File.getContent("tests.xml");
 		var fast = new Fast(Xml.parse(testData).firstElement());
@@ -84,7 +127,7 @@ class Test
 				{
 					try
 					{
-						emu.frame();
+						emu.frame(60);
 						++frameCount;
 					}
 					catch(e:Dynamic)
@@ -94,7 +137,7 @@ class Test
 					}
 				}
 
-				currentHash = bufferHash(emu.buffer);
+				currentHash = bufferHash(emu.screenBuffer);
 
 				if (hash != null && currentHash == hash)
 				{
@@ -128,11 +171,10 @@ class Test
 
 				var resultImg = "test_results/" + StringTools.lpad(Std.string(i), "0", 3) + "-" + rom + ".png";
 
-				var bm = emu.buffer;
+				var pixels = emu.screenBuffer.getPixels();
 				var bo = new haxe.io.BytesOutput();
-				for (i in 0 ... 256 * 240)
+				for (c in pixels)
 				{
-					var c = emu.getColor(bm.get(i));
 					bo.writeByte((c & 0xFF0000) >> 16);
 					bo.writeByte((c & 0xFF00) >> 8);
 					bo.writeByte((c & 0xFF));
@@ -156,15 +198,14 @@ class Test
 		Sys.println(failures.join(' '));
 	}
 
-	static inline function bufferHash(buffer:ByteString)
+	static inline function bufferHash(buffer:IScreenBuffer)
 	{
 		var bytesSeen:Map<Int, String> = new Map();
 		var byteCount:Int = 0;
 		var b = new StringBuf();
 
-		for (i in 0 ... buffer.length)
+		for (c in buffer.getPixels())
 		{
-			var c = buffer.get(i);
 			if (!bytesSeen.exists(c))
 			{
 				bytesSeen[c] = Std.string(byteCount++);

@@ -12,6 +12,7 @@ interface IScreenBuffer
 	public var clipRight(default, set):Int;
 
 	public function pset(addr:Int, c:Int):Void;
+	public function getPixels():Iterable<Int>;
 
 	public function resize(width:Int, height:Int):Void;
 	public function startFrame():Void;

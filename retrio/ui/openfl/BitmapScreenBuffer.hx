@@ -94,7 +94,7 @@ class BitmapScreenBuffer extends Bitmap implements IScreenBuffer implements IScr
 
 	public inline function pset(addr:Int, value:Int):Void
 	{
-		Memory.setI32(addr*4, value);
+		if (addr >= loopStart) Memory.setI32((addr-loopStart)*4, value);
 	}
 
 	public function resize(width:Int, height:Int):Void
@@ -134,5 +134,10 @@ class BitmapScreenBuffer extends Bitmap implements IScreenBuffer implements IScr
 		var capture = new BitmapData(bmpData.width, bmpData.height);
 		capture.copyPixels(bmpData, capture.rect, new Point());
 		return capture;
+	}
+
+	public function getPixels():Iterable<Int>
+	{
+		return null;
 	}
 }

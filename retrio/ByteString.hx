@@ -95,4 +95,21 @@ abstract ByteString(ContainerType)
 	{
 		return this;
 	}
+
+	public function iterator():ByteStringIterator
+	{
+		return new ByteStringIterator(this);
+	}
+}
+
+private class ByteStringIterator
+{
+	var data:ContainerType;
+	var pos:Int = 0;
+
+	public inline function new(data:ContainerType) this.data = data;
+
+	public inline function hasNext():Bool return pos < data.length - 1;
+
+	public inline function next():Int return data.get(pos++);
 }
